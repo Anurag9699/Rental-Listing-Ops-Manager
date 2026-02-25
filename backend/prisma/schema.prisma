@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+enum SenderRole {
+  CUSTOMER
+  OPERATOR
+}
+
+model Listing {
+  id                 String              @id @default(uuid()) @map("listing_id")
+  title              String              @db.VarChar(255)
+  status             ListingStatus       @default(DRAFT)
+  createdAt          DateTime            @default(now()) @map("created_at")
+  availabilityBlocks AvailabilityBlock[]
+  chatMessages       ChatMessage[]
+
+  @@map("listings")
+}
+
+model AvailabilityBlock {
+  id          String   @id @default(uuid()) @map("block_id")
+  listingId   String   @map("listing_id")
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  blockReason String?  @db.VarChar(255) @map("block_reason")
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@map("availability_blocks")
+}
+
+model ChatMessage {
+  id         String     @id @default(uuid()) @map("message_id")
+  listingId  String     @map("listing_id")
+  senderRole SenderRole @map("sender_role")
+  messageText String     @db.Text @map("message_text")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  listing    Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@map("chat_messages")
+}
