@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: listing_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Backend Service
+  backend:
+    build: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/listing_db?schema=public
+    depends_on:
+      - postgres
+
+  # Availability Engine Service
+  availability-engine:
+    build: ./availability-engine
+    ports:
+      - "3002:3002"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/listing_db?schema=public
+    depends_on:
+      - postgres
+
+  # Frontend Service
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_BACKEND_URL=http://localhost:3001/api
+      - VITE_AVAILABILITY_URL=http://localhost:3002/api
+    depends_on:
+      - backend
+      - availability-engine
+
+volumes:
+  postgres_data:
