@@ -5,6 +5,19 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding data...');
 
+  // 0. Create an owner
+  const owner = await prisma.user.upsert({
+    where: { email: 'owner@test.com' },
+    update: {},
+    create: {
+      id: 'test-owner-id',
+      name: 'Test Owner',
+      email: 'owner@test.com',
+      password: 'password',
+      role: 'MIDDLEMAN',
+    },
+  });
+
   // 1. Create a listing
   const listing = await prisma.listing.upsert({
     where: { id: 'test-listing-id' },
@@ -13,6 +26,7 @@ async function main() {
       id: 'test-listing-id',
       title: 'Luxury Villa in Malibu',
       status: 'ACTIVE',
+      ownerId: owner.id,
     },
   });
 

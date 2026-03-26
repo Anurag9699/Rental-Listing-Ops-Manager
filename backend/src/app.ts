@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 
+import authRoutes from './routes/auth';
 import listingRoutes from './routes/listings';
+import bookingRoutes from './routes/bookings';
 import chatRoutes from './routes/chat';
 
 const app = express();
@@ -20,7 +22,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/listings', listingRoutes);
+app.use('/api/bookings', bookingRoutes);
 app.use('/api/chat', chatRoutes);
 
 export default app;

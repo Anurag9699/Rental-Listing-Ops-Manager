@@ -3,52 +3,89 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 
 const router = Router();
-// Lazy load or mock prisma for demonstration
 let prisma: any;
 try {
     prisma = new PrismaClient();
 } catch (e) {
-    prisma = { listing: { findMany: () => Promise.reject("Mock") }, chatMessage: { findMany: () => Promise.reject("Mock") } };
+    prisma = null;
 }
 
-// Track which mock listings have availability blocks (for readiness check in mock mode)
-export const mockBlockedListings = new Set<string>();
-
-// Mock storage for demonstration when DB is down
+// Mock storage
 const mockListings: any[] = [
-    { id: '1', title: 'Modern Waterfront Studio', category: 'WATERFRONT', status: 'ACTIVE', createdAt: new Date() },
-    { id: '2', title: 'Downtown Glass Loft', category: 'URBAN', status: 'PAUSED', createdAt: new Date() },
-    { id: '3', title: 'Mountain View Chalet', category: 'LUXURY', status: 'DRAFT', createdAt: new Date() }
+    { id: '1', title: 'Modern Waterfront Studio', category: 'WATERFRONT', status: 'ACTIVE', ownerId: 'mid-1', createdAt: new Date() },
+    { id: '2', title: 'Downtown Glass Loft', category: 'URBAN', status: 'PENDING_APPROVAL', ownerId: 'mid-1', createdAt: new Date() },
+    { id: '3', title: 'Mountain View Chalet', category: 'LUXURY', status: 'DRAFT', ownerId: 'mid-2', createdAt: new Date() },
+    { id: '4', title: 'Suburban Family Home', category: 'ECONOMY', status: 'ACTIVE', ownerId: 'mid-2', createdAt: new Date() },
 ];
 
-// GET /listings
+// Valid state transitions (State Machine Guard)
+const VALID_TRANSITIONS: Record<string, string[]> = {
+    DRAFT: ['PENDING_APPROVAL'],
+    PENDING_APPROVAL: ['ACTIVE', 'REJECTED'],
+    ACTIVE: ['PAUSED', 'DISABLED'],
+    PAUSED: ['ACTIVE', 'DISABLED'],
+    REJECTED: ['DRAFT'],
+    DISABLED: []
+};
+
+// GET /listings — role-filtered
+// Query params: ?role=ADMIN|MIDDLEMAN|CUSTOMER&ownerId=xxx
 router.get('/', async (req, res) => {
+    const { role, ownerId } = req.query;
+
     try {
+        let where: any = {};
+        if (role === 'CUSTOMER') {
+            where.status = 'ACTIVE'; // Customers only see approved listings
+        } else if (role === 'MIDDLEMAN' && ownerId) {
+            where.ownerId = ownerId; // Middlemen see only their own
+        }
+        // ADMIN sees all
+
         const listings = await prisma.listing.findMany({
-            orderBy: { createdAt: 'desc' }
+            where,
+            orderBy: { createdAt: 'desc' },
+            include: { owner: { select: { id: true, name: true, email: true } } }
         });
         res.status(200).json(listings);
     } catch (error: any) {
-        // Return in-memory mocks if DB fails
-        res.status(200).json(mockListings.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
+        let filtered = [...mockListings];
+        if (role === 'CUSTOMER') {
+            filtered = filtered.filter(l => l.status === 'ACTIVE');
+        } else if (role === 'MIDDLEMAN' && ownerId) {
+            filtered = filtered.filter(l => l.ownerId === ownerId);
+        }
+        res.status(200).json(filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
     }
 });
 
-// POST /listings
+// POST /listings — Middleman creates a listing (starts as DRAFT)
 router.post('/', async (req, res) => {
-    const { title, status, category } = req.body;
+    const { title, description, category, ownerId } = req.body;
+
+    if (!title || !ownerId) {
+        return res.status(400).json({ error: "title and ownerId are required." });
+    }
+
     try {
         const listing = await prisma.listing.create({
-            data: { title, category: category || 'URBAN', status: status || 'DRAFT' }
+            data: {
+                title,
+                description: description || null,
+                category: category || 'URBAN',
+                status: 'DRAFT',
+                ownerId
+            }
         });
         res.status(201).json(listing);
     } catch (error: any) {
-        // Mock creation
         const newListing = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: 'lst-' + Date.now(),
             title,
-            status: status || 'DRAFT',
+            description: description || null,
+            status: 'DRAFT',
             category: category || 'URBAN',
+            ownerId,
             createdAt: new Date()
         };
         mockListings.push(newListing);
@@ -60,27 +97,22 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const listing = await prisma.listing.findUnique({
-            where: { id: req.params.id }
+            where: { id: req.params.id },
+            include: { owner: { select: { id: true, name: true, email: true } } }
         });
-        if (!listing) throw new Error("Not found");
+        if (!listing) return res.status(404).json({ error: "Listing not found." });
         res.status(200).json(listing);
     } catch (error: any) {
         const found = mockListings.find(l => l.id === req.params.id);
-        res.status(200).json(found || mockListings[0]);
+        if (!found) return res.status(404).json({ error: "Listing not found." });
+        res.status(200).json(found);
     }
 });
 
-// Valid state transitions (State Machine Guard)
-const VALID_TRANSITIONS: Record<string, string[]> = {
-    DRAFT: ['ACTIVE'],
-    ACTIVE: ['PAUSED', 'DISABLED'],
-    PAUSED: ['ACTIVE', 'DISABLED'],
-    DISABLED: [] // Terminal state — no transitions allowed
-};
-
-// PATCH /listings/:id/state
+// PATCH /listings/:id/state — Role-aware state machine
+// Body: { status, role } where role is who is making the change
 router.patch('/:id/state', async (req, res) => {
-    const { status: newStatus } = req.body;
+    const { status: newStatus, role } = req.body;
 
     if (!newStatus) {
         return res.status(400).json({ error: "New status is required." });
@@ -93,7 +125,6 @@ router.patch('/:id/state', async (req, res) => {
         const currentStatus = listing.status;
         const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
 
-        // State Machine Guard
         if (!allowedTransitions.includes(newStatus)) {
             return res.status(400).json({
                 error: `Invalid state transition: ${currentStatus} → ${newStatus} is not allowed.`,
@@ -101,14 +132,12 @@ router.patch('/:id/state', async (req, res) => {
             });
         }
 
-        // Readiness Validator: Can only go ACTIVE if availability blocks exist
-        if (newStatus === 'ACTIVE') {
-            const blockCount = await prisma.availabilityBlock.count({ where: { listingId: req.params.id } });
-            if (blockCount === 0) {
-                return res.status(400).json({
-                    error: "Listing readiness check failed: At least one availability block must be configured before activating a listing."
-                });
-            }
+        // Role enforcement
+        if (newStatus === 'PENDING_APPROVAL' && role !== 'MIDDLEMAN') {
+            return res.status(403).json({ error: "Only Middlemen can submit listings for approval." });
+        }
+        if ((newStatus === 'ACTIVE' || newStatus === 'REJECTED') && currentStatus === 'PENDING_APPROVAL' && role !== 'ADMIN') {
+            return res.status(403).json({ error: "Only Admin can approve or reject listings." });
         }
 
         const updated = await prisma.listing.update({
@@ -127,15 +156,6 @@ router.patch('/:id/state', async (req, res) => {
                 error: `Invalid state transition: ${listing.status} → ${newStatus} is not allowed.`,
                 allowedTransitions
             });
-        }
-
-        // Readiness check in mock mode
-        if (newStatus === 'ACTIVE') {
-            if (!mockBlockedListings.has(listing.id)) {
-                return res.status(400).json({
-                    error: "Listing readiness check failed: At least one availability block must be configured before activating a listing."
-                });
-            }
         }
 
         listing.status = newStatus;
