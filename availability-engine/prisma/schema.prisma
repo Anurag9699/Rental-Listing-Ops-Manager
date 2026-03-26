@@ -6,10 +6,20 @@ datasource db {
   provider = "postgresql"
 }
 
+// ===== ENUMS =====
+
+enum UserRole {
+  ADMIN
+  MIDDLEMAN
+  CUSTOMER
+}
+
 enum ListingStatus {
   DRAFT
+  PENDING_APPROVAL
   ACTIVE
   PAUSED
+  REJECTED
   DISABLED
 }
 
@@ -22,18 +32,48 @@ enum ListingCategory {
 
 enum SenderRole {
   CUSTOMER
-  OPERATOR
+  MIDDLEMAN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+// ===== MODELS =====
+
+model User {
+  id        String   @id @default(uuid()) @map("user_id")
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  role      UserRole @default(CUSTOMER)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  listings        Listing[]
+  bookingRequests BookingRequest[]
+  chatMessages    ChatMessage[]
+
+  @@map("users")
 }
 
 model Listing {
-  id                 String              @id @default(uuid()) @map("listing_id")
-  title              String              @db.VarChar(255)
-  category           ListingCategory     @default(URBAN)
-  status             ListingStatus       @default(DRAFT)
-  createdAt          DateTime            @default(now()) @map("created_at")
+  id        String          @id @default(uuid()) @map("listing_id")
+  title     String          @db.VarChar(255)
+  description String?       @db.Text
+  category  ListingCategory @default(URBAN)
+  status    ListingStatus   @default(DRAFT)
+  ownerId   String          @map("owner_id")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  owner              User               @relation(fields: [ownerId], references: [id])
   availabilityBlocks AvailabilityBlock[]
+  bookingRequests    BookingRequest[]
   chatMessages       ChatMessage[]
 
+  @@index([ownerId])
   @@map("listings")
 }
 
@@ -49,13 +89,33 @@ model AvailabilityBlock {
   @@map("availability_blocks")
 }
 
+model BookingRequest {
+  id          String        @id @default(uuid()) @map("booking_id")
+  listingId   String        @map("listing_id")
+  customerId  String        @map("customer_id")
+  startDate   DateTime      @map("start_date")
+  endDate     DateTime      @map("end_date")
+  status      BookingStatus @default(PENDING)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  listing  Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  customer User    @relation(fields: [customerId], references: [id])
+
+  @@index([listingId])
+  @@index([customerId])
+  @@map("booking_requests")
+}
+
 model ChatMessage {
-  id         String     @id @default(uuid()) @map("message_id")
-  listingId  String     @map("listing_id")
-  senderRole SenderRole @map("sender_role")
+  id          String     @id @default(uuid()) @map("message_id")
+  listingId   String     @map("listing_id")
+  senderId    String     @map("sender_id")
+  senderRole  SenderRole @map("sender_role")
   messageText String     @db.Text @map("message_text")
-  createdAt  DateTime   @default(now()) @map("created_at")
-  listing    Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  sender  User    @relation(fields: [senderId], references: [id])
 
   @@index([listingId])
   @@map("chat_messages")
