@@ -50,8 +50,9 @@ export default function CustomerListingDetail() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            setBookMsg('✅ Booking request submitted! The property operator will review it shortly.');
+            setBookMsg('✅ Booking Confirmed! Your dates have been successfully locked.');
             setBookForm({ startDate: '', endDate: '' });
+            fetchData(); // Instantly refresh the calendar blocks
         } catch (err: any) { setBookError(err.message); } finally { setBooking(false); }
     };
 
@@ -84,11 +85,29 @@ export default function CustomerListingDetail() {
                 <ArrowLeft className="w-4 h-4" /> Back to listings
             </Link>
 
-            {/* Listing Hero */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                <div className="h-64 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+            {/* Listing Hero Images */}
+            {listing.imageUrls && listing.imageUrls.length > 0 ? (
+                <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] rounded-2xl overflow-hidden mb-6">
+                    <div className="col-span-2 row-span-2 overflow-hidden bg-slate-100">
+                        <img src={listing.imageUrls[0]} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    {listing.imageUrls.slice(1, 5).map((url: string, idx: number) => (
+                        <div key={idx} className="overflow-hidden bg-slate-100">
+                            <img src={url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                        </div>
+                    ))}
+                    {/* Fill empty spots if less than 5 images */}
+                    {Array.from({ length: Math.max(0, 4 - (listing.imageUrls.length - 1)) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="bg-slate-100 h-full w-full"></div>
+                    ))}
+                </div>
+            ) : (
+                <div className="h-64 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl flex items-center justify-center mb-6">
                     <span className="text-8xl">{categoryIcons[listing.category] || '🏠'}</span>
                 </div>
+            )}
+
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                 <div className="p-8">
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                         <div>
@@ -125,7 +144,7 @@ export default function CustomerListingDetail() {
                                     {booking ? 'Submitting...' : '📅 Book Now'}
                                 </button>
                             </form>
-                            <p className="text-xs text-slate-400 mt-3 text-center">Requests are reviewed within the hour</p>
+                            <p className="text-xs text-slate-400 mt-3 text-center">✨ Instant Booking Confirmation</p>
                         </div>
                     </div>
                 </div>

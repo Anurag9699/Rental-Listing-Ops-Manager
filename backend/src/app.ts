@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import './prismaClient'; // Initialize DB connection at startup
 
 import authRoutes from './routes/auth';
 import listingRoutes from './routes/listings';

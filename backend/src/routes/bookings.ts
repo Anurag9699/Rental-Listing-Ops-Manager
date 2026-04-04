@@ -32,20 +32,35 @@ router.post('/', async (req, res) => {
     }
 
     try {
+        // 1. Immediately request the Availability Engine to block the dates
+        await axios.post(`${AVAILABILITY_ENGINE_URL}/block`, {
+            listingId,
+            startDate: start.toISOString(),
+            endDate: end.toISOString(),
+            blockReason: `Auto-Booked by Customer ${customerId.substring(0, 10)}...`
+        });
+
+        // 2. If successful, save the Booking as CONFIRMED
         const booking = await prisma.bookingRequest.create({
             data: {
                 listingId, customerId,
                 startDate: start, endDate: end,
-                status: 'PENDING'
+                status: 'CONFIRMED'
             }
         });
         res.status(201).json(booking);
     } catch (error: any) {
+        // Handle Availability Engine rejection (e.g. 409 Conflict)
+        if (error.response?.status === 409 || error.response?.status === 400) {
+            return res.status(error.response.status).json({ error: error.response.data.error || "Dates are no longer available." });
+        }
+
+        // Handle Database failure fallback
         const newBooking = {
             id: 'bk-' + Date.now(),
             listingId, customerId,
             startDate: start, endDate: end,
-            status: 'PENDING',
+            status: 'CONFIRMED',
             createdAt: new Date()
         };
         mockBookings.push(newBooking);

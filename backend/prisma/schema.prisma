@@ -63,10 +63,15 @@ model Listing {
   id        String          @id @default(uuid()) @map("listing_id")
   title     String          @db.VarChar(255)
   description String?       @db.Text
-  category  ListingCategory @default(URBAN)
-  status    ListingStatus   @default(DRAFT)
-  ownerId   String          @map("owner_id")
-  createdAt DateTime        @default(now()) @map("created_at")
+  address     String?       @db.VarChar(255)
+  city        String?       @db.VarChar(100)
+  latitude    Float?
+  longitude   Float?
+  category    ListingCategory @default(URBAN)
+  status      ListingStatus   @default(DRAFT)
+  imageUrls   String[]        @default([]) @map("image_urls")
+  ownerId     String          @map("owner_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
 
   owner              User               @relation(fields: [ownerId], references: [id])
   availabilityBlocks AvailabilityBlock[]
@@ -74,6 +79,7 @@ model Listing {
   chatMessages       ChatMessage[]
 
   @@index([ownerId])
+  @@index([city])
   @@map("listings")
 }
 
