@@ -10,17 +10,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Copy Prisma schema before npm install (so postinstall can find it)
+COPY prisma ./prisma/
+
 # Install dependencies
 RUN npm install
 
 # Copy source code
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
-
 # Expose port 3001
 EXPOSE 3001
 
-# Start the application
-CMD ["npm", "run", "dev"]
+# Start the application in production mode
+CMD ["npm", "start"]
