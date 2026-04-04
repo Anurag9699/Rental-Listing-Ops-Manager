@@ -19,6 +19,9 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Build TypeScript to JavaScript
+RUN npm run build
+
 # Expose port 3001
 EXPOSE 3001
 
