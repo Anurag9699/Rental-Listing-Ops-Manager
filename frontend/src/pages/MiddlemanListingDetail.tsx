@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/RoleContext';
 import { API_BASE_URL } from '../utils/apiConfig';
-import { ArrowLeft, Calendar, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, Calendar, MessageSquare, Send, MapPin, Trash2 } from 'lucide-react';
 
 export default function MiddlemanListingDetail() {
     const { id } = useParams();
@@ -12,6 +12,7 @@ export default function MiddlemanListingDetail() {
     const [messages, setMessages] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'availability' | 'chat'>('availability');
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     // Block dates form
     const [blockForm, setBlockForm] = useState({ startDate: '', endDate: '', blockReason: '' });
@@ -26,15 +27,38 @@ export default function MiddlemanListingDetail() {
 
     const fetchData = async () => {
         try {
-            const [listingRes, blocksRes, chatRes] = await Promise.all([
-                fetch(`${API_BASE_URL.BACKEND}/listings/${id}`),
-                fetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`),
-                fetch(`${API_BASE_URL.BACKEND}/chat/${id}`),
-            ]);
-            setListing(await listingRes.json());
-            setBlocks(await blocksRes.json());
-            setMessages(await chatRes.json());
-        } catch (e) {} finally { setLoading(false); }
+            const listingRes = await fetch(`${API_BASE_URL.BACKEND}/listings/${id}`);
+            if (listingRes.ok) setListing(await listingRes.json());
+        } catch (e) { console.error("Failed to fetch listing"); }
+
+        try {
+            const blocksRes = await fetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`);
+            if (blocksRes.ok) setBlocks(await blocksRes.json());
+        } catch (e) { console.error("Failed to fetch availability"); }
+
+        try {
+            const chatRes = await fetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
+            if (chatRes.ok) setMessages(await chatRes.json());
+        } catch (e) { console.error("Failed to fetch chat"); }
+        
+        setLoading(false);
+    };
+
+    const handleDeleteListing = async () => {
+        if (!window.confirm('Are you sure you want to permanently delete this listing?')) return;
+        try {
+            const res = await fetch(`${API_BASE_URL.BACKEND}/listings/${id}?ownerId=${user?.id}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                navigate('/middleman');
+            } else {
+                const err = await res.json();
+                alert(`Error deleting listing: ${err.error}`);
+            }
+        } catch (e) {
+            alert('Failed to delete listing due to network error.');
+        }
     };
 
     const handleBlockDates = async (e: React.FormEvent) => {
@@ -81,15 +105,50 @@ export default function MiddlemanListingDetail() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center gap-4">
-                <Link to="/middleman" className="text-slate-400 hover:text-slate-600"><ArrowLeft className="w-5 h-5" /></Link>
-                <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold text-slate-800">{listing.title}</h1>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor[listing.status]}`}>{listing.status}</span>
+            {/* Header Actions */}
+            <div className="flex justify-between items-center mb-4">
+                <Link to="/middleman" className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-600 text-sm">
+                    <ArrowLeft className="w-4 h-4" /> Back to listings
+                </Link>
+                <button onClick={handleDeleteListing}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 hover:shadow-sm rounded-lg text-sm font-medium transition-colors">
+                    <Trash2 className="w-4 h-4" /> Delete Property
+                </button>
+            </div>
+
+            {/* Listing Hero Images */}
+            {listing.imageUrls && listing.imageUrls.length > 0 ? (
+                <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] rounded-2xl overflow-hidden mb-6">
+                    <div className="col-span-2 row-span-2 overflow-hidden bg-slate-100">
+                        <img src={listing.imageUrls[0]} onError={(e) => { e.currentTarget.src = 'https://placehold.co/600x400/e2e8f0/64748b?text=Unavailable'; }} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                     </div>
-                    <p className="text-sm text-slate-500 mt-1">ID: #{listing.id?.substring(0, 8)}</p>
+                    {listing.imageUrls.slice(1, 5).map((url: string, idx: number) => (
+                        <div key={idx} className="overflow-hidden bg-slate-100">
+                            <img src={url} onError={(e) => { e.currentTarget.src = 'https://placehold.co/600x400/e2e8f0/64748b?text=Unavailable'; }} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                        </div>
+                    ))}
+                    {Array.from({ length: Math.max(0, 4 - (listing.imageUrls.length - 1)) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="bg-slate-100 h-full w-full"></div>
+                    ))}
+                </div>
+            ) : (
+                <div className="h-40 bg-gradient-to-br from-slate-50 to-indigo-50 rounded-2xl flex items-center justify-center mb-6 border border-slate-200">
+                    <span className="text-slate-400">No images provided</span>
+                </div>
+            )}
+
+            {/* Header / Info block */}
+            <div className="flex flex-col gap-2 mb-6">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-3xl font-bold text-slate-800">{listing.title}</h1>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor[listing.status] || 'bg-slate-100 text-slate-700'}`}>{listing.status}</span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 text-sm text-slate-500">
+                    <p>ID: #{listing.id?.substring(0, 8)}</p>
+                    <div className="flex items-center gap-1">
+                        <MapPin className="w-4 h-4 text-slate-400" />
+                        <span>{listing.city || 'Location not specified'}{listing.address ? `, ${listing.address}` : ''}</span>
+                    </div>
                 </div>
             </div>
 

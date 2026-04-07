@@ -1,1 +1,0 @@
-{"version":3,"file":"availabilityService.d.ts","sourceRoot":"","sources":["availabilityService.ts"],"names":[],"mappings":"AAIA,qBAAa,mBAAmB;IAC5B;;OAEG;WACU,oBAAoB,CAAC,SAAS,EAAE,MAAM,EAAE,SAAS,EAAE,MAAM,EAAE,OAAO,EAAE,MAAM,GAAG,OAAO,CAAC,OAAO,CAAC;IAe1G;;OAEG;WACU,UAAU,CAAC,SAAS,EAAE,MAAM,EAAE,SAAS,EAAE,MAAM,EAAE,OAAO,EAAE,MAAM,EAAE,MAAM,EAAE,MAAM;CAchG"}

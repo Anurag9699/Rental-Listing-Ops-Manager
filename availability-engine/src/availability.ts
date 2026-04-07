@@ -5,10 +5,7 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 
 // In-memory store for demonstration fallback
-const mockBlocks: any[] = [
-    { id: 'b1', listingId: '1', startDate: new Date('2026-04-01'), endDate: new Date('2026-04-05'), blockReason: 'Seasonal Cleaning' },
-    { id: 'b2', listingId: '1', startDate: new Date('2026-04-12'), endDate: new Date('2026-04-15'), blockReason: 'Private Event' }
-];
+const mockBlocks: any[] = [];
 
 let prisma: any;
 try {
@@ -102,12 +99,9 @@ router.get('/:listingId', async (req, res) => {
         if (blocks.length === 0) throw new Error("No blocks");
         res.status(200).json(blocks);
     } catch (error: any) {
-        // Return in-memory mock data
+        // Return in-memory mock data filtered by listingId — empty if none match
         const filtered = mockBlocks.filter(b => b.listingId === listingId);
-        res.status(200).json(filtered.length > 0 ? filtered : [
-            { id: 'b1', listingId, startDate: new Date('2026-04-01'), endDate: new Date('2026-04-05'), blockReason: 'Seasonal Cleaning' },
-            { id: 'b2', listingId, startDate: new Date('2026-04-12'), endDate: new Date('2026-04-15'), blockReason: 'Private Event' }
-        ]);
+        res.status(200).json(filtered);
     }
 });
 

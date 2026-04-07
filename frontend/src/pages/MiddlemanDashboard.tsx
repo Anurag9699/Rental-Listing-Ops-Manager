@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/RoleContext';
 import { API_BASE_URL } from '../utils/apiConfig';
-import { Plus, Eye, Clock, Send, ImageIcon, X } from 'lucide-react';
+import { Plus, Eye, Clock, Send, ImageIcon, X, Trash2 } from 'lucide-react';
 
 export default function MiddlemanDashboard() {
     const { user } = useAuth();
@@ -112,6 +112,23 @@ export default function MiddlemanDashboard() {
         } catch (e) {}
     };
 
+    const handleDelete = async (listingId: string) => {
+        if (!window.confirm('Are you sure you want to permanently delete this listing?')) return;
+        try {
+            const res = await fetch(`${API_BASE_URL.BACKEND}/listings/${listingId}?ownerId=${user?.id}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                fetchListings();
+            } else {
+                const err = await res.json();
+                alert(`Error deleting listing: ${err.error}`);
+            }
+        } catch (e) {
+            alert('Failed to delete listing due to network error.');
+        }
+    };
+
 
 
     const statusColor: Record<string, string> = {
@@ -184,6 +201,10 @@ export default function MiddlemanDashboard() {
                                                 <Send className="w-3.5 h-3.5" /> Submit for Approval
                                             </button>
                                         )}
+                                        <button onClick={() => handleDelete(listing.id)}
+                                            className="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm font-medium ml-2">
+                                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                                        </button>
                                     </td>
                                 </tr>
                             ))}

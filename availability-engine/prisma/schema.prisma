@@ -63,10 +63,11 @@ model Listing {
   id        String          @id @default(uuid()) @map("listing_id")
   title     String          @db.VarChar(255)
   description String?       @db.Text
-  category  ListingCategory @default(URBAN)
-  status    ListingStatus   @default(DRAFT)
-  ownerId   String          @map("owner_id")
-  createdAt DateTime        @default(now()) @map("created_at")
+  category    ListingCategory @default(URBAN)
+  status      ListingStatus   @default(DRAFT)
+  imageUrls   String[]        @default([]) @map("image_urls")
+  ownerId     String          @map("owner_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
 
   owner              User               @relation(fields: [ownerId], references: [id])
   availabilityBlocks AvailabilityBlock[]

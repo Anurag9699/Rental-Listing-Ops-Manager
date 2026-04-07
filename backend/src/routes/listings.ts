@@ -149,7 +149,7 @@ router.get('/', async (req, res) => {
 
 // POST /listings — Middleman creates a listing (starts as DRAFT)
 router.post('/', async (req, res) => {
-    const { title, description, category, ownerId, address, city, latitude, longitude } = req.body;
+    const { title, description, category, ownerId, address, city, latitude, longitude, imageUrls } = req.body;
 
     if (!title || !ownerId) {
         return res.status(400).json({ error: "title and ownerId are required." });
@@ -166,11 +166,13 @@ router.post('/', async (req, res) => {
                 longitude: longitude ? parseFloat(longitude) : null,
                 category: category || 'URBAN',
                 status: 'DRAFT',
-                ownerId
+                ownerId,
+                imageUrls: Array.isArray(imageUrls) ? imageUrls.filter((u: string) => u.trim() !== '') : []
             }
         });
         res.status(201).json(listing);
     } catch (error: any) {
+        console.error('[Create Listing Error]', error);
         const newListing = {
             id: 'lst-' + Date.now(),
             title,
@@ -182,6 +184,7 @@ router.post('/', async (req, res) => {
             status: 'DRAFT',
             category: category || 'URBAN',
             ownerId,
+            imageUrls: Array.isArray(imageUrls) ? imageUrls.filter((u: string) => u.trim() !== '') : [],
             createdAt: new Date()
         };
         mockListings.push(newListing);
@@ -256,6 +259,29 @@ router.patch('/:id/state', async (req, res) => {
 
         listing.status = newStatus;
         res.status(200).json(listing);
+    }
+});
+
+// DELETE /listings/:id — Owner can delete their own listing
+router.delete('/:id', async (req, res) => {
+    const { ownerId } = req.query;
+    if (!ownerId) return res.status(400).json({ error: "ownerId is required to delete a listing." });
+
+    try {
+        const listing = await prisma.listing.findUnique({ where: { id: req.params.id } });
+        if (!listing) return res.status(404).json({ error: "Listing not found." });
+        if (listing.ownerId !== ownerId) return res.status(403).json({ error: "Unauthorized access: You don't own this listing." });
+
+        await prisma.listing.delete({ where: { id: req.params.id } });
+        res.status(200).json({ message: "Listing deleted successfully." });
+    } catch (error: any) {
+        // Mock fallback
+        const idx = mockListings.findIndex(l => l.id === req.params.id);
+        if (idx === -1) return res.status(404).json({ error: "Listing not found." });
+        if (mockListings[idx].ownerId !== ownerId) return res.status(403).json({ error: "Unauthorized access." });
+
+        mockListings.splice(idx, 1);
+        res.status(200).json({ message: "Listing deleted successfully." });
     }
 });
 

@@ -28,15 +28,21 @@ export default function CustomerListingDetail() {
 
     const fetchData = async () => {
         try {
-            const [listingRes, blocksRes, chatRes] = await Promise.all([
-                fetch(`${API_BASE_URL.BACKEND}/listings/${id}`),
-                fetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`),
-                fetch(`${API_BASE_URL.BACKEND}/chat/${id}`),
-            ]);
-            setListing(await listingRes.json());
-            setBlocks(await blocksRes.json());
-            setMessages(await chatRes.json());
-        } catch (e) {} finally { setLoading(false); }
+            const listingRes = await fetch(`${API_BASE_URL.BACKEND}/listings/${id}`);
+            if (listingRes.ok) setListing(await listingRes.json());
+        } catch (e) { console.error("Failed to fetch listing"); }
+
+        try {
+            const blocksRes = await fetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`);
+            if (blocksRes.ok) setBlocks(await blocksRes.json());
+        } catch (e) { console.error("Failed to fetch availability"); }
+
+        try {
+            const chatRes = await fetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
+            if (chatRes.ok) setMessages(await chatRes.json());
+        } catch (e) { console.error("Failed to fetch chat"); }
+        
+        setLoading(false);
     };
 
     const handleBook = async (e: React.FormEvent) => {
@@ -89,11 +95,11 @@ export default function CustomerListingDetail() {
             {listing.imageUrls && listing.imageUrls.length > 0 ? (
                 <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] rounded-2xl overflow-hidden mb-6">
                     <div className="col-span-2 row-span-2 overflow-hidden bg-slate-100">
-                        <img src={listing.imageUrls[0]} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                        <img src={listing.imageUrls[0]} onError={(e) => { e.currentTarget.src = 'https://placehold.co/600x400/e2e8f0/64748b?text=Unavailable'; }} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                     </div>
                     {listing.imageUrls.slice(1, 5).map((url: string, idx: number) => (
                         <div key={idx} className="overflow-hidden bg-slate-100">
-                            <img src={url} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                            <img src={url} onError={(e) => { e.currentTarget.src = 'https://placehold.co/600x400/e2e8f0/64748b?text=Unavailable'; }} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                         </div>
                     ))}
                     {/* Fill empty spots if less than 5 images */}

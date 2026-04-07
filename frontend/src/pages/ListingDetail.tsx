@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../utils/apiConfig';
-import { ChevronLeft, CheckCircle, XCircle, Building2, Tag, Clock, Info } from 'lucide-react';
+import { ChevronLeft, CheckCircle, XCircle, Building2, Tag, Clock, Info, MapPin } from 'lucide-react';
 
 interface Listing {
     id: string;
@@ -11,6 +11,9 @@ interface Listing {
     category: string;
     createdAt: string;
     owner?: { id: string; name: string; email: string };
+    imageUrls?: string[];
+    city?: string | null;
+    address?: string | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -109,6 +112,27 @@ export default function ListingDetail() {
                 <ChevronLeft size={20} /> Back to Dashboard
             </Link>
 
+            {/* Listing Hero Images */}
+            {listing.imageUrls && listing.imageUrls.length > 0 ? (
+                <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[400px] rounded-2xl overflow-hidden mb-8">
+                    <div className="col-span-2 row-span-2 overflow-hidden bg-slate-100">
+                        <img src={listing.imageUrls[0]} onError={(e) => { e.currentTarget.src = 'https://placehold.co/600x400/e2e8f0/64748b?text=Unavailable'; }} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    {listing.imageUrls.slice(1, 5).map((url: string, idx: number) => (
+                        <div key={idx} className="overflow-hidden bg-slate-100">
+                            <img src={url} onError={(e) => { e.currentTarget.src = 'https://placehold.co/600x400/e2e8f0/64748b?text=Unavailable'; }} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                        </div>
+                    ))}
+                    {Array.from({ length: Math.max(0, 4 - (listing.imageUrls.length - 1)) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="bg-slate-100 h-full w-full"></div>
+                    ))}
+                </div>
+            ) : (
+                <div className="h-40 bg-gradient-to-br from-slate-50 to-indigo-50 rounded-2xl flex items-center justify-center mb-8 border border-slate-200">
+                    <span className="text-slate-400">No images provided</span>
+                </div>
+            )}
+
             {/* Header */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 mb-6">
                 <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -166,6 +190,16 @@ export default function ListingDetail() {
                             <p className="font-semibold text-slate-800">
                                 {new Date(listing.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
+                        </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-cyan-50 flex items-center justify-center shrink-0">
+                            <MapPin size={18} className="text-cyan-600" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-0.5">Location</p>
+                            <p className="font-semibold text-slate-800">{listing.city || 'Not specified'}</p>
+                            <p className="text-xs text-slate-400">{listing.address || ''}</p>
                         </div>
                     </div>
                 </div>
