@@ -22,6 +22,11 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// Mock Availability Route to suppress connection errors if microservice is offline
+app.get('/api/availability/:listingId', (req, res) => {
+    res.status(200).json([]);
+});
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/listings', listingRoutes);

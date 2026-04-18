@@ -101,6 +101,10 @@ router.post('/register', async (req, res) => {
             });
             const safeUser = stripPassword(user);
             const token = generateToken(safeUser as any);
+            
+            // Cache in mock store for cross-module fallback safety
+            sharedMockStore.addUser({ ...user, createdAt: user.createdAt || new Date() } as any);
+            
             return res.status(201).json({ ...safeUser, token });
 
         } catch (error: any) {
