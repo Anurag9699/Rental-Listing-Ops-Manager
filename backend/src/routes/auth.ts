@@ -151,19 +151,19 @@ router.post('/login', async (req, res) => {
     if (prisma) {
         try {
             const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-            if (!user) {
-                return res.status(401).json({ error: "Invalid email or password." });
+            if (user) {
+                // Support bcrypt hashed and legacy plaintext passwords
+                const isValidPassword = user.password.startsWith('$2')
+                    ? await bcrypt.compare(password, user.password)
+                    : user.password === password;
+                if (!isValidPassword) {
+                    return res.status(401).json({ error: "Invalid email or password." });
+                }
+                const safeUser = stripPassword(user);
+                const token = generateToken(safeUser as any);
+                return res.status(200).json({ ...safeUser, token });
             }
-            // Support bcrypt hashed and legacy plaintext passwords
-            const isValidPassword = user.password.startsWith('$2')
-                ? await bcrypt.compare(password, user.password)
-                : user.password === password;
-            if (!isValidPassword) {
-                return res.status(401).json({ error: "Invalid email or password." });
-            }
-            const safeUser = stripPassword(user);
-            const token = generateToken(safeUser as any);
-            return res.status(200).json({ ...safeUser, token });
+            // Not found in DB, perfectly fine, fall through to check mock users.
         } catch (error: any) {
             console.error('[Login] DB error:', error.message);
             // Fall through to mock only on DB failure

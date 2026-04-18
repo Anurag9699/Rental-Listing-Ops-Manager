@@ -73,7 +73,7 @@ export default function MiddlemanListingDetail() {
             apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}/threads`)
                 .then(r => r.json())
                 .then(data => setThreads(Array.isArray(data) ? data : []))
-                .catch(e => console.error("Failed to poll threads"));
+                .catch(() => console.error("Failed to poll threads"));
         }, 5000);
         return () => clearInterval(interval);
     }, [activeTab, id]);
