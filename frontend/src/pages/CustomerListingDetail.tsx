@@ -1,18 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/RoleContext';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { apiFetch } from '../utils/apiFetch';
-import { ArrowLeft, Calendar, MessageSquare, Send, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, MessageSquare, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function CustomerListingDetail() {
     const { id } = useParams();
     const { user } = useAuth();
     const [listing, setListing] = useState<any>(null);
-    const [blocks, setBlocks] = useState<any[]>([]);
+    // Blocked date ranges: merged from availability engine blocks + confirmed bookings
+    const [blockedRanges, setBlockedRanges] = useState<{ start: Date; end: Date; type: 'booked' | 'blocked'; label?: string }[]>([]);
     const [messages, setMessages] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'availability' | 'chat'>('availability');
     const [loading, setLoading] = useState(true);
+    // Calendar navigation
+    const [calMonth, setCalMonth] = useState(() => {
+        const d = new Date(); d.setDate(1); return d;
+    });
 
     // Booking form
     const [bookForm, setBookForm] = useState({ startDate: '', endDate: '' });
@@ -33,10 +38,33 @@ export default function CustomerListingDetail() {
             if (listingRes.ok) setListing(await listingRes.json());
         } catch (e) { console.error("Failed to fetch listing"); }
 
+        const merged: { start: Date; end: Date; type: 'booked' | 'blocked'; label?: string }[] = [];
+
+        // Source 1: Manual blocks by middleman from Availability Engine
         try {
             const blocksRes = await apiFetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`);
-            if (blocksRes.ok) setBlocks(await blocksRes.json());
-        } catch (e) { console.error("Failed to fetch availability"); }
+            if (blocksRes.ok) {
+                const data = await blocksRes.json();
+                for (const b of data) {
+                    merged.push({ start: new Date(b.startDate), end: new Date(b.endDate), type: 'blocked', label: b.blockReason || 'Blocked by operator' });
+                }
+            }
+        } catch (e) { console.error("Failed to fetch availability blocks"); }
+
+        // Source 2: Confirmed bookings from Backend DB (most reliable source)
+        try {
+            const bookingsRes = await apiFetch(`${API_BASE_URL.BACKEND}/bookings/${id}`);
+            if (bookingsRes.ok) {
+                const data = await bookingsRes.json();
+                for (const b of data) {
+                    if (b.status === 'CONFIRMED') {
+                        merged.push({ start: new Date(b.startDate), end: new Date(b.endDate), type: 'booked', label: 'Reserved by guest' });
+                    }
+                }
+            }
+        } catch (e) { console.error("Failed to fetch bookings"); }
+
+        setBlockedRanges(merged);
 
         try {
             const chatRes = await apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
@@ -93,6 +121,17 @@ export default function CustomerListingDetail() {
             }
         } catch (e) {}
     };
+
+    // Helper: check if a given date falls in any blocked range
+    const getDayStatus = useMemo(() => (date: Date): 'booked' | 'blocked' | 'available' => {
+        const d = new Date(date); d.setHours(0, 0, 0, 0);
+        for (const range of blockedRanges) {
+            const s = new Date(range.start); s.setHours(0, 0, 0, 0);
+            const e = new Date(range.end); e.setHours(0, 0, 0, 0);
+            if (d >= s && d <= e) return range.type;
+        }
+        return 'available';
+    }, [blockedRanges]);
 
     const categoryIcons: Record<string, string> = { LUXURY: '🏰', ECONOMY: '🏠', WATERFRONT: '🌊', URBAN: '🏙️' };
 
@@ -183,40 +222,113 @@ export default function CustomerListingDetail() {
                 </button>
             </div>
 
-            {/* Calendar View (read-only) */}
+            {/* Calendar View */}
             {activeTab === 'availability' && (
                 <div className="bg-white border border-slate-200 rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-slate-800">Availability Overview</h3>
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="font-semibold text-slate-800">Availability Calendar</h3>
                         <div className="flex items-center gap-4 text-xs">
-                            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100 border border-slate-300"></span> Available</span>
-                            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-200 border border-red-300"></span> Blocked</span>
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> Available</span>
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-200 border border-blue-300"></span> Booked</span>
+                            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-200 border border-red-300"></span> Blocked</span>
                         </div>
                     </div>
-                    {blocks.length === 0 ? (
-                        <div className="text-center py-10">
-                            <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-3" />
-                            <p className="text-green-600 font-medium">All dates are currently available!</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {blocks.map((block: any, i: number) => (
-                                <div key={block.id || i} className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+
+                    {/* Month navigator */}
+                    <div className="flex items-center justify-between mb-4">
+                        <button onClick={() => { const d = new Date(calMonth); d.setMonth(d.getMonth() - 1); setCalMonth(d); }}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                            <ChevronLeft className="w-4 h-4 text-slate-500" />
+                        </button>
+                        <span className="font-semibold text-slate-700 text-sm">
+                            {calMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        </span>
+                        <button onClick={() => { const d = new Date(calMonth); d.setMonth(d.getMonth() + 1); setCalMonth(d); }}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                            <ChevronRight className="w-4 h-4 text-slate-500" />
+                        </button>
+                    </div>
+
+                    {/* Day grid */}
+                    {(() => {
+                        const year = calMonth.getFullYear();
+                        const month = calMonth.getMonth();
+                        const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+                        const daysInMonth = new Date(year, month + 1, 0).getDate();
+                        const today = new Date(); today.setHours(0, 0, 0, 0);
+                        const cells: React.ReactNode[] = [];
+
+                        // Empty leading cells
+                        for (let i = 0; i < firstDay; i++) {
+                            cells.push(<div key={`e-${i}`} />);
+                        }
+
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            const date = new Date(year, month, day);
+                            const isPast = date < today;
+                            const status = isPast ? 'past' : getDayStatus(date);
+
+                            const colorClass =
+                                isPast ? 'bg-slate-50 text-slate-300 cursor-not-allowed' :
+                                status === 'booked'  ? 'bg-blue-100 text-blue-700 border border-blue-300 font-semibold' :
+                                status === 'blocked' ? 'bg-red-100 text-red-700 border border-red-300 font-semibold' :
+                                'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer transition-colors';
+
+                            cells.push(
+                                <div key={day} title={isPast ? 'Past date' : status === 'booked' ? 'Reserved by guest' : status === 'blocked' ? 'Blocked by operator' : 'Available'}
+                                    className={`aspect-square flex items-center justify-center rounded-lg text-xs font-medium ${colorClass}`}>
+                                    {day}
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div>
+                                {/* Day labels */}
+                                <div className="grid grid-cols-7 gap-1 mb-1">
+                                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                                        <div key={d} className="text-center text-xs text-slate-400 font-medium py-1">{d}</div>
+                                    ))}
+                                </div>
+                                <div className="grid grid-cols-7 gap-1">{cells}</div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Blocked ranges summary */}
+                    {blockedRanges.length > 0 && (
+                        <div className="mt-6 space-y-2">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reserved Periods</p>
+                            {blockedRanges.map((r, i) => (
+                                <div key={i} className={`flex items-center justify-between rounded-lg px-4 py-2.5 ${
+                                    r.type === 'booked' ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'
+                                }`}>
                                     <div>
-                                        <p className="text-sm font-medium text-red-800">
-                                            {new Date(block.startDate).toLocaleDateString()} → {new Date(block.endDate).toLocaleDateString()}
+                                        <p className={`text-sm font-medium ${r.type === 'booked' ? 'text-blue-800' : 'text-red-800'}`}>
+                                            {new Date(r.start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            {' → '}
+                                            {new Date(r.end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                                         </p>
-                                        <p className="text-xs text-red-400 mt-0.5">Reserved / Blocked</p>
+                                        <p className={`text-xs mt-0.5 ${r.type === 'booked' ? 'text-blue-500' : 'text-red-500'}`}>{r.label}</p>
                                     </div>
-                                    <span className="text-xs bg-red-200 text-red-700 px-2 py-0.5 rounded-full">Blocked</span>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                        r.type === 'booked' ? 'bg-blue-200 text-blue-700' : 'bg-red-200 text-red-700'
+                                    }`}>{r.type === 'booked' ? 'Booked' : 'Blocked'}</span>
                                 </div>
                             ))}
                         </div>
                     )}
+
+                    {blockedRanges.length === 0 && (
+                        <div className="text-center py-8 mt-4 bg-emerald-50 rounded-xl">
+                            <p className="text-emerald-600 font-medium text-sm">✅ All dates are currently available!</p>
+                        </div>
+                    )}
+
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
                         <p className="text-sm text-amber-700">
-                            <strong>Important Note:</strong> This calendar is for viewing purposes only. Dates marked as "Blocked" are reserved. 
-                            Contact the operator to confirm availability for specific date ranges.
+                            <strong>Note:</strong> Blue dates are reserved by guests. Red dates are manually blocked by the operator.
+                            Contact the operator to confirm availability for edge cases.
                         </p>
                     </div>
                 </div>
