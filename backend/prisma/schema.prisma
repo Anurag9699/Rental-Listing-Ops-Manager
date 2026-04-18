@@ -52,9 +52,10 @@ model User {
   role      UserRole @default(CUSTOMER)
   createdAt DateTime @default(now()) @map("created_at")
 
-  listings        Listing[]
-  bookingRequests BookingRequest[]
-  chatMessages    ChatMessage[]
+  listings            Listing[]
+  bookingRequests     BookingRequest[]
+  chatMessagesSent    ChatMessage[] @relation("MessageSender")
+  chatThreadsInvolved ChatMessage[] @relation("MessageCustomerThread")
 
   @@map("users")
 }
@@ -67,10 +68,11 @@ model Listing {
   city        String?       @db.VarChar(100)
   latitude    Float?
   longitude   Float?
-  category    ListingCategory @default(URBAN)
-  status      ListingStatus   @default(DRAFT)
-  imageUrls   String[]        @default([]) @map("image_urls")
-  ownerId     String          @map("owner_id")
+  category      ListingCategory @default(URBAN)
+  status        ListingStatus   @default(DRAFT)
+  pricePerNight Int             @default(0) @map("price_per_night")
+  imageUrls     String[]        @default([]) @map("image_urls")
+  ownerId       String          @map("owner_id")
   createdAt   DateTime        @default(now()) @map("created_at")
 
   owner              User               @relation(fields: [ownerId], references: [id])
@@ -115,14 +117,17 @@ model BookingRequest {
 model ChatMessage {
   id          String     @id @default(uuid()) @map("message_id")
   listingId   String     @map("listing_id")
+  customerId  String     @map("customer_id")
   senderId    String     @map("sender_id")
   senderRole  SenderRole @map("sender_role")
   messageText String     @db.Text @map("message_text")
   createdAt   DateTime   @default(now()) @map("created_at")
 
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  sender  User    @relation(fields: [senderId], references: [id])
+  listing  Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  sender   User    @relation("MessageSender", fields: [senderId], references: [id])
+  customer User    @relation("MessageCustomerThread", fields: [customerId], references: [id])
 
   @@index([listingId])
+  @@index([customerId])
   @@map("chat_messages")
 }

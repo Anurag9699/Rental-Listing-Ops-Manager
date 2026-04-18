@@ -9,8 +9,8 @@ export default function CustomerListingDetail() {
     const { id } = useParams();
     const { user } = useAuth();
     const [listing, setListing] = useState<any>(null);
-    // Blocked date ranges: merged from availability engine blocks + confirmed bookings
     const [blockedRanges, setBlockedRanges] = useState<{ start: Date; end: Date; type: 'booked' | 'blocked'; label?: string }[]>([]);
+    const [myBookings, setMyBookings] = useState<any[]>([]);
     const [messages, setMessages] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'availability' | 'chat'>('availability');
     const [loading, setLoading] = useState(true);
@@ -56,19 +56,26 @@ export default function CustomerListingDetail() {
             const bookingsRes = await apiFetch(`${API_BASE_URL.BACKEND}/bookings/${id}`);
             if (bookingsRes.ok) {
                 const data = await bookingsRes.json();
+                const mine: any[] = [];
                 for (const b of data) {
                     if (b.status === 'CONFIRMED') {
                         merged.push({ start: new Date(b.startDate), end: new Date(b.endDate), type: 'booked', label: 'Reserved by guest' });
                     }
+                    if (b.customerId === user?.id) {
+                        mine.push(b);
+                    }
                 }
+                setMyBookings(mine);
             }
         } catch (e) { console.error("Failed to fetch bookings"); }
 
         setBlockedRanges(merged);
 
         try {
-            const chatRes = await apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
-            if (chatRes.ok) setMessages(await chatRes.json());
+            if (user?.id) {
+                const chatRes = await apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}?customerId=${user.id}`);
+                if (chatRes.ok) setMessages(await chatRes.json());
+            }
         } catch (e) { console.error("Failed to fetch chat"); }
         
         setLoading(false);
@@ -112,7 +119,7 @@ export default function CustomerListingDetail() {
             const res = await apiFetch(`${API_BASE_URL.BACKEND}/chat/message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ listingId: id, senderId: user?.id, senderRole: 'CUSTOMER', messageText: chatText }),
+                body: JSON.stringify({ listingId: id, customerId: user?.id, senderId: user?.id, senderRole: 'CUSTOMER', messageText: chatText }),
             });
             if (res.ok) {
                 const msg = await res.json();
@@ -120,6 +127,22 @@ export default function CustomerListingDetail() {
                 setChatText('');
             }
         } catch (e) {}
+    };
+
+    const handleCancelBooking = async (bookingId: string) => {
+        if (!window.confirm('Are you sure you want to cancel this booking? This action cannot be undone.')) return;
+        try {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/bookings/${bookingId}`, { method: 'DELETE' });
+            if (res.ok) {
+                alert('Booking cancelled successfully.');
+                fetchData();
+            } else {
+                const data = await res.json();
+                alert(`Failed to cancel booking: ${data.error}`);
+            }
+        } catch (e) {
+            alert('Error cancelling booking.');
+        }
     };
 
     // Helper: check if a given date falls in any blocked range
@@ -183,7 +206,7 @@ export default function CustomerListingDetail() {
                         {/* Booking Card */}
                         <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 w-full lg:w-80 shrink-0">
                             <h3 className="font-semibold text-slate-800 mb-1">BOOKING INFO</h3>
-                            <p className="text-2xl font-bold text-slate-800 mb-4">₹145 <span className="text-sm font-normal text-slate-500">/ night</span></p>
+                            <p className="text-2xl font-bold text-slate-800 mb-4">₹{listing.pricePerNight?.toLocaleString('en-IN') || '0'} <span className="text-sm font-normal text-slate-500">/ night</span></p>
                             
                             {bookMsg && <div className="bg-green-50 border border-green-200 text-green-700 text-sm p-3 rounded-lg mb-3">{bookMsg}</div>}
                             {bookError && <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg mb-3">{bookError}</div>}
@@ -205,6 +228,30 @@ export default function CustomerListingDetail() {
                                 </button>
                             </form>
                             <p className="text-xs text-slate-400 mt-3 text-center">✨ Instant Booking Confirmation</p>
+
+                            {/* User's Bookings List */}
+                            {myBookings.length > 0 && (
+                                <div className="mt-6 pt-4 border-t border-slate-200">
+                                    <h4 className="font-semibold text-slate-800 text-sm mb-3">YOUR BOOKINGS</h4>
+                                    <div className="space-y-3">
+                                        {myBookings.map((b: any) => (
+                                            <div key={b.id} className="bg-white border border-slate-200 rounded-lg p-3 text-xs flex justify-between items-center shadow-sm">
+                                                <div>
+                                                    <p className="font-medium text-slate-700">
+                                                        {new Date(b.startDate).toLocaleDateString()} - {new Date(b.endDate).toLocaleDateString()}
+                                                    </p>
+                                                    <p className={`font-semibold mt-0.5 ${b.status === 'CONFIRMED' ? 'text-green-600' : 'text-amber-600'}`}>
+                                                        {b.status}
+                                                    </p>
+                                                </div>
+                                                <button onClick={() => handleCancelBooking(b.id)} className="text-red-500 hover:text-red-700 font-medium px-2.5 py-1.5 bg-red-50 hover:bg-red-100 rounded-md transition-colors">
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

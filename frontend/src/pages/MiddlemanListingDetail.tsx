@@ -11,6 +11,8 @@ export default function MiddlemanListingDetail() {
     const [listing, setListing] = useState<any>(null);
     const [blocks, setBlocks] = useState<any[]>([]);
     const [messages, setMessages] = useState<any[]>([]);
+    const [threads, setThreads] = useState<any[]>([]);
+    const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<'availability' | 'chat'>('availability');
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
@@ -38,12 +40,23 @@ export default function MiddlemanListingDetail() {
         } catch (e) { console.error("Failed to fetch availability"); }
 
         try {
-            const chatRes = await apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
-            if (chatRes.ok) setMessages(await chatRes.json());
-        } catch (e) { console.error("Failed to fetch chat"); }
+            const threadRes = await apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}/threads`);
+            if (threadRes.ok) setThreads(await threadRes.json());
+        } catch (e) { console.error("Failed to fetch threads"); }
         
         setLoading(false);
     };
+
+    useEffect(() => {
+        if (!selectedCustomer) {
+            setMessages([]);
+            return;
+        }
+        apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}?customerId=${selectedCustomer.id}`)
+            .then(r => r.json())
+            .then(data => setMessages(Array.isArray(data) ? data : []))
+            .catch(() => setMessages([]));
+    }, [selectedCustomer, id]);
 
     const handleDeleteListing = async () => {
         if (!window.confirm('Are you sure you want to permanently delete this listing?')) return;
@@ -81,11 +94,15 @@ export default function MiddlemanListingDetail() {
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!chatText.trim()) return;
+        if (!selectedCustomer) {
+            alert('Please select a customer thread first.');
+            return;
+        }
         try {
             const res = await apiFetch(`${API_BASE_URL.BACKEND}/chat/message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ listingId: id, senderId: user?.id, senderRole: 'MIDDLEMAN', messageText: chatText }),
+                body: JSON.stringify({ listingId: id, customerId: selectedCustomer.id, senderId: user?.id, senderRole: 'MIDDLEMAN', messageText: chatText }),
             });
             if (res.ok) {
                 const msg = await res.json();
@@ -222,30 +239,76 @@ export default function MiddlemanListingDetail() {
 
             {/* Chat Tab */}
             {activeTab === 'chat' && (
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="h-96 overflow-y-auto p-6 space-y-4">
-                        {messages.length === 0 && <p className="text-center text-slate-400 py-12">No messages yet.</p>}
-                        {messages.map((msg: any, i: number) => (
-                            <div key={msg.id || i} className={`flex ${msg.senderRole === 'MIDDLEMAN' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-md px-4 py-3 rounded-2xl ${
-                                    msg.senderRole === 'MIDDLEMAN' ? 'bg-blue-500 text-white rounded-br-md' : 'bg-slate-100 text-slate-800 rounded-bl-md'
-                                }`}>
-                                    <p className={`text-xs font-semibold mb-1 ${msg.senderRole === 'MIDDLEMAN' ? 'text-blue-100' : 'text-slate-500'}`}>
-                                        {msg.senderRole}
-                                    </p>
-                                    <p className="text-sm">{msg.messageText}</p>
-                                </div>
-                            </div>
-                        ))}
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden flex h-[600px]">
+                    {/* Customer Threads Sidebar */}
+                    <div className="w-1/3 border-r border-slate-200 flex flex-col">
+                        <div className="p-4 border-b border-slate-200 bg-slate-50">
+                            <h3 className="font-semibold text-slate-800">Messages</h3>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                            {threads.length === 0 ? (
+                                <p className="text-center text-slate-400 py-6 text-sm">No inquiries yet.</p>
+                            ) : (
+                                threads.map(t => (
+                                    <button 
+                                        key={t.id} 
+                                        onClick={() => setSelectedCustomer(t)}
+                                        className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors text-left ${selectedCustomer?.id === t.id ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50 border border-transparent'}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs shrink-0">
+                                                {t.name?.[0] || '?'}
+                                            </div>
+                                            <div className="overflow-hidden">
+                                                <p className="font-medium text-slate-800 text-sm truncate">{t.name}</p>
+                                                <p className="text-xs text-slate-500 truncate">{t.email}</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
                     </div>
-                    <form onSubmit={handleSendMessage} className="border-t border-slate-200 p-4 flex gap-2">
-                        <input type="text" value={chatText} onChange={e => setChatText(e.target.value)}
-                            placeholder="Type your message as Operator..."
-                            className="flex-1 border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" />
-                        <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg transition-colors">
-                            <Send className="w-4 h-4" />
-                        </button>
-                    </form>
+                    
+                    {/* Chat Area */}
+                    <div className="w-2/3 flex flex-col bg-slate-50">
+                        {!selectedCustomer ? (
+                            <div className="flex-1 flex items-center justify-center">
+                                <p className="text-slate-400">Select a customer to view messages.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="p-4 border-b border-slate-200 bg-white">
+                                    <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                                        Chat with {selectedCustomer.name}
+                                    </h3>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                    {messages.length === 0 && <p className="text-center text-slate-400 py-12">No messages yet.</p>}
+                                    {messages.map((msg: any, i: number) => (
+                                        <div key={msg.id || i} className={`flex ${msg.senderRole === 'MIDDLEMAN' ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-md px-4 py-3 rounded-2xl ${
+                                                msg.senderRole === 'MIDDLEMAN' ? 'bg-blue-500 text-white rounded-br-md' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md shadow-sm'
+                                            }`}>
+                                                <p className={`text-xs font-semibold mb-1 ${msg.senderRole === 'MIDDLEMAN' ? 'text-blue-100' : 'text-slate-500'}`}>
+                                                    {msg.senderRole === 'MIDDLEMAN' ? 'You' : selectedCustomer.name}
+                                                </p>
+                                                <p className="text-sm">{msg.messageText}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <form onSubmit={handleSendMessage} className="border-t border-slate-200 p-4 flex gap-2 bg-white">
+                                    <input type="text" value={chatText} onChange={e => setChatText(e.target.value)}
+                                        placeholder={`Reply to ${selectedCustomer.name}...`}
+                                        className="flex-1 border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                    <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg transition-colors">
+                                        <Send className="w-4 h-4" />
+                                    </button>
+                                </form>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

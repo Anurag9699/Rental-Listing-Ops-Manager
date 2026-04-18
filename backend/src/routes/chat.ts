@@ -4,18 +4,15 @@ import { prisma } from '../prismaClient';
 
 const router = Router();
 
-// In-memory mock messages
-const mockMessages: any[] = [
-    { id: 'm1', listingId: '1', senderId: 'cust-1', senderRole: 'CUSTOMER', messageText: 'Hi, is this waterfront studio available for April dates?', createdAt: new Date() },
-    { id: 'm2', listingId: '1', senderId: 'mid-1', senderRole: 'MIDDLEMAN', messageText: 'Hello! Yes, we have availability starting from April 5th. Would you like to schedule a viewing?', createdAt: new Date() },
-];
+// In-memory mock messages (cleared old format because schema changed)
+const mockMessages: any[] = [];
 
-// POST /chat/message — Send message (Customer ↔ Middleman)
+// POST /chat/message — Send message in a specific customer thread
 router.post('/message', async (req, res) => {
-    const { listingId, senderId, senderRole, messageText } = req.body;
+    const { listingId, customerId, senderId, senderRole, messageText } = req.body;
 
-    if (!listingId || !senderId || !senderRole || !messageText) {
-        return res.status(400).json({ error: "listingId, senderId, senderRole, and messageText are required." });
+    if (!listingId || !customerId || !senderId || !senderRole || !messageText) {
+        return res.status(400).json({ error: "listingId, customerId, senderId, senderRole, and messageText are required." });
     }
 
     const validRoles = ['CUSTOMER', 'MIDDLEMAN'];
@@ -24,14 +21,15 @@ router.post('/message', async (req, res) => {
     }
 
     try {
+        if (!prisma) throw new Error('DB unavailable');
         const message = await prisma.chatMessage.create({
-            data: { listingId, senderId, senderRole, messageText }
+            data: { listingId, customerId, senderId, senderRole, messageText }
         });
         res.status(201).json(message);
     } catch (error: any) {
         const newMessage = {
             id: 'msg-' + Date.now(),
-            listingId, senderId, senderRole, messageText,
+            listingId, customerId, senderId, senderRole, messageText,
             createdAt: new Date()
         };
         mockMessages.push(newMessage);
@@ -39,17 +37,53 @@ router.post('/message', async (req, res) => {
     }
 });
 
-// GET /chat/:listingId — Get chat history for a listing
-router.get('/:listingId', async (req, res) => {
+// GET /chat/:listingId/threads — Get all customer threads for a listing
+router.get('/:listingId/threads', async (req, res) => {
     try {
+        if (!prisma) throw new Error('DB unavailable');
+        // Fetch distinct customers who have messaged in this listing
         const messages = await prisma.chatMessage.findMany({
             where: { listingId: req.params.listingId },
+            select: { customer: { select: { id: true, name: true, email: true } } },
+            distinct: ['customerId']
+        });
+        const customers = messages.map(m => m.customer).filter(Boolean);
+        res.status(200).json(customers);
+    } catch (error: any) {
+        // Mock fallback
+        const listingMsgs = mockMessages.filter(m => m.listingId === req.params.listingId);
+        const customersMap = new Map();
+        listingMsgs.forEach(m => {
+            if (!customersMap.has(m.customerId)) {
+                customersMap.set(m.customerId, { id: m.customerId, name: 'Mock Customer', email: 'mock@example.com' });
+            }
+        });
+        res.status(200).json(Array.from(customersMap.values()));
+    }
+});
+
+// GET /chat/:listingId — Get chat history for a specific customer thread
+// Requires ?customerId=xxx
+router.get('/:listingId', async (req, res) => {
+    const { customerId } = req.query;
+    
+    if (!customerId) {
+        return res.status(400).json({ error: "customerId query parameter is required to view a chat thread." });
+    }
+
+    try {
+        if (!prisma) throw new Error('DB unavailable');
+        const messages = await prisma.chatMessage.findMany({
+            where: { listingId: req.params.listingId, customerId: customerId as string },
             orderBy: { createdAt: 'asc' },
             include: { sender: { select: { id: true, name: true, role: true } } }
         });
         res.status(200).json(messages.length > 0 ? messages : []);
     } catch (error: any) {
-        const filtered = mockMessages.filter(m => m.listingId === req.params.listingId);
+        const filtered = mockMessages.filter(m => 
+            m.listingId === req.params.listingId && 
+            m.customerId === customerId
+        );
         res.status(200).json(filtered);
     }
 });

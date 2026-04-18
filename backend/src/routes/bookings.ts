@@ -206,4 +206,48 @@ router.patch('/:id/reject', async (req, res) => {
     }
 });
 
+// DELETE /bookings/:id — Customer cancels a booking
+router.delete('/:id', async (req, res) => {
+    try {
+        if (!prisma) throw new Error('DB unavailable');
+        
+        const booking = await prisma.bookingRequest.findUnique({ where: { id: req.params.id } });
+        if (!booking) return res.status(404).json({ error: "Booking not found." });
+
+        // Unblock dates in Availability Engine (Best effort)
+        try {
+            await axios.delete(`${AVAILABILITY_ENGINE_URL}/block`, {
+                data: {
+                    listingId: booking.listingId,
+                    startDate: booking.startDate.toISOString(),
+                    endDate: booking.endDate.toISOString()
+                }
+            });
+        } catch (engineError) {
+            console.warn('[Bookings] ⚠️ Failed to unblock dates in availability engine, but proceeding to delete booking.');
+        }
+
+        await prisma.bookingRequest.delete({ where: { id: req.params.id } });
+        res.status(200).json({ message: "Booking cancelled successfully." });
+    } catch (error: any) {
+        // Mock fallback
+        const idx = mockBookings.findIndex(b => b.id === req.params.id);
+        if (idx === -1) return res.status(404).json({ error: "Booking not found." });
+        
+        const booking = mockBookings[idx];
+        try {
+            await axios.delete(`${AVAILABILITY_ENGINE_URL}/block`, {
+                data: {
+                    listingId: booking.listingId,
+                    startDate: new Date(booking.startDate).toISOString(),
+                    endDate: new Date(booking.endDate).toISOString()
+                }
+            });
+        } catch (e) {}
+
+        mockBookings.splice(idx, 1);
+        res.status(200).json({ message: "Booking cancelled successfully." });
+    }
+});
+
 export default router;

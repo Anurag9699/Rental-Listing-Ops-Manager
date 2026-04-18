@@ -24,28 +24,28 @@ try {
 
 // Mock storage
 const mockListings: any[] = [
-    { id: '1', title: 'Modern Waterfront Studio', category: 'WATERFRONT', status: 'ACTIVE', ownerId: 'mid-1', createdAt: new Date(), city: 'Mumbai', address: 'Bandra West, Mumbai', latitude: 19.0596, longitude: 72.8295, imageUrls: [
+    { id: '1', title: 'Modern Waterfront Studio', category: 'WATERFRONT', status: 'ACTIVE', ownerId: 'mid-1', pricePerNight: 4500, createdAt: new Date(), city: 'Mumbai', address: 'Bandra West, Mumbai', latitude: 19.0596, longitude: 72.8295, imageUrls: [
         'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1502672260266-1c1e52db06ac?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=1600&q=80',
     ]},
-    { id: '2', title: 'Downtown Glass Loft', category: 'URBAN', status: 'PENDING_APPROVAL', ownerId: 'mid-1', createdAt: new Date(), city: 'Delhi', address: 'Connaught Place, New Delhi', latitude: 28.6315, longitude: 77.2167, imageUrls: [
+    { id: '2', title: 'Downtown Glass Loft', category: 'URBAN', status: 'PENDING_APPROVAL', ownerId: 'mid-1', pricePerNight: 3200, createdAt: new Date(), city: 'Delhi', address: 'Connaught Place, New Delhi', latitude: 28.6315, longitude: 77.2167, imageUrls: [
         'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=1600&q=80',
     ]},
-    { id: '3', title: 'Mountain View Chalet', category: 'LUXURY', status: 'DRAFT', ownerId: 'mid-2', createdAt: new Date(), city: 'Manali', address: 'Old Manali, Himachal Pradesh', latitude: 32.2432, longitude: 77.1892, imageUrls: [
+    { id: '3', title: 'Mountain View Chalet', category: 'LUXURY', status: 'DRAFT', ownerId: 'mid-2', pricePerNight: 8500, createdAt: new Date(), city: 'Manali', address: 'Old Manali, Himachal Pradesh', latitude: 32.2432, longitude: 77.1892, imageUrls: [
         'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1416331108676-a22ccb276e35?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1556020685-ae41abfc9365?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1615873968403-89e068629265?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?auto=format&fit=crop&w=1600&q=80',
     ]},
-    { id: '4', title: 'Suburban Family Home', category: 'ECONOMY', status: 'ACTIVE', ownerId: 'mid-2', createdAt: new Date(), city: 'Mumbai', address: 'Andheri East, Mumbai', latitude: 19.1136, longitude: 72.8697, imageUrls: [
+    { id: '4', title: 'Suburban Family Home', category: 'ECONOMY', status: 'ACTIVE', ownerId: 'mid-2', pricePerNight: 2100, createdAt: new Date(), city: 'Mumbai', address: 'Andheri East, Mumbai', latitude: 19.1136, longitude: 72.8697, imageUrls: [
         'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1600&q=80',
         'https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=1600&q=80',
@@ -149,7 +149,7 @@ router.get('/', async (req, res) => {
 
 // POST /listings — Middleman creates a listing (starts as DRAFT)
 router.post('/', async (req, res) => {
-    const { title, description, category, ownerId, address, city, latitude, longitude, imageUrls } = req.body;
+    const { title, description, category, ownerId, address, city, latitude, longitude, imageUrls, pricePerNight } = req.body;
 
     if (!title || !ownerId) {
         return res.status(400).json({ error: "title and ownerId are required." });
@@ -166,6 +166,7 @@ router.post('/', async (req, res) => {
                 longitude: longitude ? parseFloat(longitude) : null,
                 category: category || 'URBAN',
                 status: 'DRAFT',
+                pricePerNight: pricePerNight ? parseInt(pricePerNight, 10) : 0,
                 ownerId,
                 imageUrls: Array.isArray(imageUrls) ? imageUrls.filter((u: string) => u.trim() !== '') : []
             }
@@ -183,6 +184,7 @@ router.post('/', async (req, res) => {
             longitude: longitude ? parseFloat(longitude) : null,
             status: 'DRAFT',
             category: category || 'URBAN',
+            pricePerNight: pricePerNight ? parseInt(pricePerNight, 10) : 0,
             ownerId,
             imageUrls: Array.isArray(imageUrls) ? imageUrls.filter((u: string) => u.trim() !== '') : [],
             createdAt: new Date()

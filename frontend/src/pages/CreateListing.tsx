@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { apiFetch } from '../utils/apiFetch';
-import { ChevronLeft, Plus, Building2, Tag, Info } from 'lucide-react';
+import { useAuth } from '../contexts/RoleContext';
+import { ChevronLeft, Plus, Building2, Tag, Info, DollarSign } from 'lucide-react';
 
 export default function CreateListing() {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({
         title: '',
         category: 'URBAN',
-        status: 'DRAFT'
+        status: 'DRAFT',
+        pricePerNight: ''
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -20,7 +23,11 @@ export default function CreateListing() {
             const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form)
+                body: JSON.stringify({
+                    ...form,
+                    ownerId: user?.id,
+                    pricePerNight: parseInt(form.pricePerNight, 10)
+                })
             });
             if (res.ok) {
                 alert('Property Created Successfully!');
@@ -65,6 +72,23 @@ export default function CreateListing() {
                                 className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-50 transition-all font-semibold text-slate-700 placeholder:text-slate-300"
                                 value={form.title}
                                 onChange={e => setForm({...form, title: e.target.value})}
+                            />
+                        </div>
+
+                        {/* Price Input */}
+                        <div className="space-y-3">
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <DollarSign size={14} className="text-emerald-500" />
+                                Price Per Night (₹)
+                            </label>
+                            <input 
+                                type="number" 
+                                required
+                                min="1"
+                                placeholder="e.g. 5000"
+                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 outline-none focus:bg-white focus:ring-4 focus:ring-indigo-50 transition-all font-semibold text-slate-700 placeholder:text-slate-300 appearance-none"
+                                value={form.pricePerNight}
+                                onChange={e => setForm({...form, pricePerNight: e.target.value})}
                             />
                         </div>
 
