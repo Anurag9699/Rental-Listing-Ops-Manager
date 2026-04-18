@@ -1,28 +1,9 @@
 import "dotenv/config";
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
+import { getPrisma } from '../prismaClient';
+import { sharedMockStore, MockListing } from '../sharedStore';
 
 const router = Router();
-
-let prisma: any = null;
-try {
-    const dbUrl = process.env.DATABASE_URL;
-    if (dbUrl) {
-        const pool = new Pool({ connectionString: dbUrl });
-        const adapter = new PrismaPg(pool);
-        prisma = new PrismaClient({ adapter } as any);
-        console.log('[Listings] ✅ Connected to PostgreSQL');
-    } else {
-        console.warn('[Listings] ⚠️  No DATABASE_URL, using mock data');
-    }
-} catch (e: any) {
-    console.error('[Listings] ❌ DB Init Error:', e.message);
-    prisma = null;
-}
-
-import { sharedMockStore, MockListing } from '../sharedStore';
 
 // Mock storage is now handled via sharedMockStore
 const mockListings = sharedMockStore.mockListings;
@@ -55,6 +36,9 @@ router.get('/', async (req, res) => {
     const { role, ownerId, city, lat, lng, radius } = req.query;
 
     try {
+        const p = getPrisma();
+        if (!p) throw new Error('DB unavailable');
+
         let where: any = {};
         if (role === 'CUSTOMER') {
             where.status = 'ACTIVE'; 
@@ -66,7 +50,7 @@ router.get('/', async (req, res) => {
             where.city = { contains: city as string, mode: 'insensitive' };
         }
 
-        let listings = await prisma.listing.findMany({
+        let listings = await p.listing.findMany({
             where,
             orderBy: { createdAt: 'desc' },
             include: { owner: { select: { id: true, name: true, email: true } } }
@@ -129,7 +113,9 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        const listing = await prisma.listing.create({
+        const p = getPrisma();
+        if (!p) throw new Error('DB unavailable');
+        const listing = await p.listing.create({
             data: {
                 title,
                 description: description || null,
@@ -147,7 +133,7 @@ router.post('/', async (req, res) => {
         res.status(201).json(listing);
     } catch (error: any) {
         console.error('[Create Listing Error]', error);
-        const newListing = {
+        const newListing: MockListing = {
             id: 'lst-' + Date.now(),
             title,
             description: description || null,
@@ -170,7 +156,9 @@ router.post('/', async (req, res) => {
 // GET /listings/:id
 router.get('/:id', async (req, res) => {
     try {
-        const listing = await prisma.listing.findUnique({
+        const p = getPrisma();
+        if (!p) throw new Error('DB unavailable');
+        const listing = await p.listing.findUnique({
             where: { id: req.params.id },
             include: { owner: { select: { id: true, name: true, email: true } } }
         });
@@ -193,7 +181,9 @@ router.patch('/:id/state', async (req, res) => {
     }
 
     try {
-        const listing = await prisma.listing.findUnique({ where: { id: req.params.id } });
+        const p = getPrisma();
+        if (!p) throw new Error('DB unavailable');
+        const listing = await p.listing.findUnique({ where: { id: req.params.id } });
         if (!listing) return res.status(404).json({ error: "Listing not found." });
 
         const currentStatus = listing.status;
@@ -214,7 +204,7 @@ router.patch('/:id/state', async (req, res) => {
             return res.status(403).json({ error: "Only Admin can approve or reject listings." });
         }
 
-        const updated = await prisma.listing.update({
+        const updated = await p.listing.update({
             where: { id: req.params.id },
             data: { status: newStatus }
         });
@@ -243,11 +233,13 @@ router.delete('/:id', async (req, res) => {
     if (!ownerId) return res.status(400).json({ error: "ownerId is required to delete a listing." });
 
     try {
-        const listing = await prisma.listing.findUnique({ where: { id: req.params.id } });
+        const p = getPrisma();
+        if (!p) throw new Error('DB unavailable');
+        const listing = await p.listing.findUnique({ where: { id: req.params.id } });
         if (!listing) return res.status(404).json({ error: "Listing not found." });
         if (listing.ownerId !== ownerId) return res.status(403).json({ error: "Unauthorized access: You don't own this listing." });
 
-        await prisma.listing.delete({ where: { id: req.params.id } });
+        await p.listing.delete({ where: { id: req.params.id } });
         res.status(200).json({ message: "Listing deleted successfully." });
     } catch (error: any) {
         // Mock fallback

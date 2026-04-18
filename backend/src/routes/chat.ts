@@ -1,9 +1,8 @@
 import "dotenv/config";
 import { Router } from 'express';
-import { prisma } from '../prismaClient';
+import { getPrisma } from '../prismaClient';
 import { sharedMockStore, MockMessage } from '../sharedStore';
 
-// Mock storage is now handled via sharedMockStore
 const router = Router();
 
 // POST /chat/message — Send message in a specific customer thread
@@ -20,8 +19,9 @@ router.post('/message', async (req, res) => {
     }
 
     try {
-        if (!prisma) throw new Error('DB unavailable');
-        const message = await prisma.chatMessage.create({
+        const p = getPrisma();
+        if (!p) throw new Error('DB unavailable');
+        const message = await p.chatMessage.create({
             data: { listingId, customerId, senderId, senderRole, messageText }
         });
         res.status(201).json(message);
@@ -39,9 +39,10 @@ router.post('/message', async (req, res) => {
 // GET /chat/:listingId/threads — Get all customer threads for a listing
 router.get('/:listingId/threads', async (req, res) => {
     try {
-        if (!prisma) throw new Error('DB unavailable');
+        const p = getPrisma();
+        if (!p) throw new Error('DB unavailable');
         // Fetch distinct customers who have messaged in this listing
-        const messages = await prisma.chatMessage.findMany({
+        const messages = await p.chatMessage.findMany({
             where: { listingId: req.params.listingId },
             select: { customerId: true, customer: { select: { id: true, name: true, email: true } } },
             distinct: ['customerId']
@@ -77,8 +78,9 @@ router.get('/:listingId', async (req, res) => {
     }
 
     try {
-        if (!prisma) throw new Error('DB unavailable');
-        const messages = await prisma.chatMessage.findMany({
+        const p = getPrisma();
+        if (!p) throw new Error('DB unavailable');
+        const messages = await p.chatMessage.findMany({
             where: { listingId: req.params.listingId, customerId: customerId as string },
             orderBy: { createdAt: 'asc' },
             include: { sender: { select: { id: true, name: true, role: true } } }

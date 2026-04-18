@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Router, Request, Response, NextFunction } from 'express';
-import { prisma } from '../prismaClient';
+import { getPrisma } from '../prismaClient';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { sharedMockStore } from '../sharedStore';
@@ -87,15 +87,16 @@ router.post('/register', async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
 
     // ── DB path ────────────────────────────────────────────────────────────────
-    if (prisma) {
+    const p = getPrisma();
+    if (p) {
         try {
             // Check for existing user first (gives a cleaner error message)
-            const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+            const existing = await p.user.findUnique({ where: { email: normalizedEmail } });
             if (existing) {
                 return res.status(409).json({ error: "An account with this email already exists. Please log in." });
             }
 
-            const user = await prisma.user.create({
+            const user = await p.user.create({
                 data: { name: name.trim(), email: normalizedEmail, password: hashedPassword, role: userRole }
             });
             const safeUser = stripPassword(user);
@@ -137,11 +138,11 @@ router.post('/login', async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-
+    const p = getPrisma();
     // ── DB path ────────────────────────────────────────────────────────────────
-    if (prisma) {
+    if (p) {
         try {
-            const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+            const user = await p.user.findUnique({ where: { email: normalizedEmail } });
             if (user) {
                 // Support bcrypt hashed and legacy plaintext passwords
                 const isValidPassword = user.password.startsWith('$2')
@@ -175,9 +176,10 @@ router.post('/login', async (req, res) => {
 
 // ─── GET /auth/users (admin only) ──────────────────────────────────────────
 router.get('/users', requireAuth, requireRole('ADMIN'), async (req, res) => {
-    if (prisma) {
+    const p = getPrisma();
+    if (p) {
         try {
-            const users = await prisma.user.findMany({
+            const users = await p.user.findMany({
                 select: { id: true, name: true, email: true, role: true, createdAt: true },
                 orderBy: { createdAt: 'desc' }
             });
