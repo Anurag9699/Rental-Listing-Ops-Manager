@@ -7,8 +7,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn server.ts",
-    "build": "prisma db push --accept-data-loss && npx ts-node --compilerOptions '{\"module\":\"commonjs\"}' seed-mock-users.ts && tsc",
-    "start": "node dist/server.js",
+    "build": "tsc",
+    "init-db": "prisma db push --accept-data-loss && npx ts-node --compilerOptions '{\"module\":\"commonjs\"}' seed-mock-users.ts",
+    "start": "npm run init-db || echo 'Warning: DB Init failed, starting anyway' && node dist/server.js",
     "postinstall": "prisma generate"
   },
   "keywords": [],
