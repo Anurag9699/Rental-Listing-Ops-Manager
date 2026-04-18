@@ -21,7 +21,8 @@ export default function MiddlemanDashboard() {
         address: '',
         city: '',
         latitude: '',
-        longitude: ''
+        longitude: '',
+        pricePerNight: ''
     });
     const [imageUrls, setImageUrls] = useState<string[]>(['']);
     const [creating, setCreating] = useState(false);
@@ -66,13 +67,14 @@ export default function MiddlemanDashboard() {
                     ...form, 
                     ownerId: user?.id, 
                     imageUrls: validImageUrls,
+                    pricePerNight: form.pricePerNight ? parseInt(form.pricePerNight, 10) : 0,
                     latitude: form.latitude ? parseFloat(form.latitude) : null,
                     longitude: form.longitude ? parseFloat(form.longitude) : null
                 }),
             });
             if (res.ok) {
                 setShowCreate(false);
-                setForm({ title: '', description: '', category: 'URBAN', address: '', city: '', latitude: '', longitude: '' });
+                setForm({ title: '', description: '', category: 'URBAN', address: '', city: '', latitude: '', longitude: '', pricePerNight: '' });
                 setImageUrls(['']);
                 fetchListings();
             }
@@ -261,15 +263,23 @@ export default function MiddlemanDashboard() {
                                     className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none h-24"
                                     placeholder="Describe the property..." />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                                    <option value="URBAN">Urban</option>
-                                    <option value="LUXURY">Luxury</option>
-                                    <option value="WATERFRONT">Waterfront</option>
-                                    <option value="ECONOMY">Economy</option>
-                                </select>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Price Per Night (₹) *</label>
+                                    <input type="number" required min="1" value={form.pricePerNight} onChange={e => setForm({ ...form, pricePerNight: e.target.value })}
+                                        className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                        placeholder="e.g. 5000" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                                        className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                                        <option value="URBAN">Urban</option>
+                                        <option value="LUXURY">Luxury</option>
+                                        <option value="WATERFRONT">Waterfront</option>
+                                        <option value="ECONOMY">Economy</option>
+                                    </select>
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
