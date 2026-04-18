@@ -44,7 +44,7 @@ router.get('/:listingId/threads', async (req, res) => {
         // Fetch distinct customers who have messaged in this listing
         const messages = await prisma.chatMessage.findMany({
             where: { listingId: req.params.listingId },
-            select: { customer: { select: { id: true, name: true, email: true } } },
+            select: { customerId: true, customer: { select: { id: true, name: true, email: true } } },
             distinct: ['customerId']
         });
         const customers = messages.map(m => m.customer).filter(Boolean);

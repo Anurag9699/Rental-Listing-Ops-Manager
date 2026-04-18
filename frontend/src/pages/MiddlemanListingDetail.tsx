@@ -48,15 +48,33 @@ export default function MiddlemanListingDetail() {
     };
 
     useEffect(() => {
-        if (!selectedCustomer) {
+        if (!selectedCustomer || activeTab !== 'chat') {
             setMessages([]);
             return;
         }
-        apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}?customerId=${selectedCustomer.id}`)
-            .then(r => r.json())
-            .then(data => setMessages(Array.isArray(data) ? data : []))
-            .catch(() => setMessages([]));
-    }, [selectedCustomer, id]);
+        
+        const fetchMessages = () => {
+            apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}?customerId=${selectedCustomer.id}`)
+                .then(r => r.json())
+                .then(data => setMessages(Array.isArray(data) ? data : []))
+                .catch(() => setMessages([]));
+        };
+        fetchMessages();
+        
+        const interval = setInterval(fetchMessages, 3000);
+        return () => clearInterval(interval);
+    }, [selectedCustomer, id, activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'chat') return;
+        const interval = setInterval(() => {
+            apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}/threads`)
+                .then(r => r.json())
+                .then(data => setThreads(Array.isArray(data) ? data : []))
+                .catch(e => console.error("Failed to poll threads"));
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [activeTab, id]);
 
     const handleDeleteListing = async () => {
         if (!window.confirm('Are you sure you want to permanently delete this listing?')) return;

@@ -158,6 +158,17 @@ export default function CustomerListingDetail() {
 
     const categoryIcons: Record<string, string> = { LUXURY: '🏰', ECONOMY: '🏠', WATERFRONT: '🌊', URBAN: '🏙️' };
 
+    useEffect(() => {
+        if (activeTab !== 'chat' || !user?.id) return;
+        const interval = setInterval(() => {
+            apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}?customerId=${user.id}`)
+                .then(r => r.json())
+                .then(data => setMessages(Array.isArray(data) ? data : []))
+                .catch(e => console.error(e));
+        }, 3000);
+        return () => clearInterval(interval);
+    }, [activeTab, id, user?.id]);
+
     if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>;
     if (!listing) return <p className="text-center text-red-500 py-12">Listing not found.</p>;
 
