@@ -1,15 +1,8 @@
 import "dotenv/config";
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prismaClient';
 
 const router = Router();
-
-let prisma: any;
-try {
-    prisma = new PrismaClient();
-} catch (e) {
-    prisma = null;
-}
 
 // In-memory mock messages
 const mockMessages: any[] = [

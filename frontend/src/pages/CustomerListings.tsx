@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiFetch } from '../utils/apiFetch';
 import { MapPin, Search } from 'lucide-react';
 import ImageCarousel from '../components/ui/ImageCarousel';
 export default function CustomerListings() {
@@ -22,7 +23,7 @@ export default function CustomerListings() {
             if (city) url += `&city=${encodeURIComponent(city)}`;
             if (coords) url += `&lat=${coords.lat}&lng=${coords.lng}&radius=50`;
             
-            const res = await fetch(url);
+            const res = await apiFetch(url);
             const data = await res.json();
             setListings(data);
         } catch (e) {

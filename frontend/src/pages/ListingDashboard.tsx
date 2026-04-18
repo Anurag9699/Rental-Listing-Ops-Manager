@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiFetch } from '../utils/apiFetch';
 import { Eye, CheckCircle, XCircle, Search } from 'lucide-react';
 
 export default function ListingDashboard() {
@@ -13,14 +14,14 @@ export default function ListingDashboard() {
 
     const fetchListings = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/listings?role=ADMIN`);
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings?role=ADMIN`);
             setListings(await res.json());
         } catch (e) {} finally { setLoading(false); }
     };
 
     const handleStateChange = async (listingId: string, newStatus: string) => {
         try {
-            await fetch(`${API_BASE_URL.BACKEND}/listings/${listingId}/state`, {
+            await apiFetch(`${API_BASE_URL.BACKEND}/listings/${listingId}/state`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus, role: 'ADMIN' }),

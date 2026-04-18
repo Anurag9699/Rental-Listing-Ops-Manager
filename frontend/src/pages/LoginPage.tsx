@@ -107,10 +107,13 @@ export default function LoginPage() {
                                 >
                                     <option value="CUSTOMER" className="bg-slate-800">Customer</option>
                                     <option value="MIDDLEMAN" className="bg-slate-800">Rental Lister (Middleman)</option>
-                                    <option value="ADMIN" className="bg-slate-800">Admin</option>
                                 </select>
+                                <p className="text-xs text-blue-300/60 mt-1.5">
+                                    🔒 Admin accounts are pre-configured and cannot be self-registered.
+                                </p>
                             </div>
                         )}
+
 
                         <button
                             type="submit" disabled={loading}

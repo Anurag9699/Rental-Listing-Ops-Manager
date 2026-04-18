@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/RoleContext';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiFetch } from '../utils/apiFetch';
 import { ArrowLeft, Calendar, MessageSquare, Send, MapPin, Trash2 } from 'lucide-react';
 
 export default function MiddlemanListingDetail() {
@@ -27,17 +28,17 @@ export default function MiddlemanListingDetail() {
 
     const fetchData = async () => {
         try {
-            const listingRes = await fetch(`${API_BASE_URL.BACKEND}/listings/${id}`);
+            const listingRes = await apiFetch(`${API_BASE_URL.BACKEND}/listings/${id}`);
             if (listingRes.ok) setListing(await listingRes.json());
         } catch (e) { console.error("Failed to fetch listing"); }
 
         try {
-            const blocksRes = await fetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`);
+            const blocksRes = await apiFetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`);
             if (blocksRes.ok) setBlocks(await blocksRes.json());
         } catch (e) { console.error("Failed to fetch availability"); }
 
         try {
-            const chatRes = await fetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
+            const chatRes = await apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
             if (chatRes.ok) setMessages(await chatRes.json());
         } catch (e) { console.error("Failed to fetch chat"); }
         
@@ -47,7 +48,7 @@ export default function MiddlemanListingDetail() {
     const handleDeleteListing = async () => {
         if (!window.confirm('Are you sure you want to permanently delete this listing?')) return;
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/listings/${id}?ownerId=${user?.id}`, {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings/${id}?ownerId=${user?.id}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
@@ -65,7 +66,7 @@ export default function MiddlemanListingDetail() {
         e.preventDefault();
         setBlockError('');
         try {
-            const res = await fetch(`${API_BASE_URL.AVAILABILITY}/availability/block`, {
+            const res = await apiFetch(`${API_BASE_URL.AVAILABILITY}/availability/block`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ listingId: id, ...blockForm }),
@@ -81,7 +82,7 @@ export default function MiddlemanListingDetail() {
         e.preventDefault();
         if (!chatText.trim()) return;
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/chat/message`, {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/chat/message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ listingId: id, senderId: user?.id, senderRole: 'MIDDLEMAN', messageText: chatText }),

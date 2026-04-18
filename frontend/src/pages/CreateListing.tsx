@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiFetch } from '../utils/apiFetch';
 import { ChevronLeft, Plus, Building2, Tag, Info } from 'lucide-react';
 
 export default function CreateListing() {
@@ -16,7 +17,7 @@ export default function CreateListing() {
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/listings`, {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form)

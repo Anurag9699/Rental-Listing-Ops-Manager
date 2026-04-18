@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/RoleContext';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiFetch } from '../utils/apiFetch';
 import { ArrowLeft, Calendar, MessageSquare, Send, CheckCircle } from 'lucide-react';
 
 export default function CustomerListingDetail() {
@@ -28,17 +29,17 @@ export default function CustomerListingDetail() {
 
     const fetchData = async () => {
         try {
-            const listingRes = await fetch(`${API_BASE_URL.BACKEND}/listings/${id}`);
+            const listingRes = await apiFetch(`${API_BASE_URL.BACKEND}/listings/${id}`);
             if (listingRes.ok) setListing(await listingRes.json());
         } catch (e) { console.error("Failed to fetch listing"); }
 
         try {
-            const blocksRes = await fetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`);
+            const blocksRes = await apiFetch(`${API_BASE_URL.AVAILABILITY}/availability/${id}`);
             if (blocksRes.ok) setBlocks(await blocksRes.json());
         } catch (e) { console.error("Failed to fetch availability"); }
 
         try {
-            const chatRes = await fetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
+            const chatRes = await apiFetch(`${API_BASE_URL.BACKEND}/chat/${id}`);
             if (chatRes.ok) setMessages(await chatRes.json());
         } catch (e) { console.error("Failed to fetch chat"); }
         
@@ -47,9 +48,23 @@ export default function CustomerListingDetail() {
 
     const handleBook = async (e: React.FormEvent) => {
         e.preventDefault();
-        setBookError(''); setBookMsg(''); setBooking(true);
+        setBookError(''); setBookMsg(''); 
+
+        // Client-side validation: prevent past dates
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const start = new Date(bookForm.startDate);
+        const end = new Date(bookForm.endDate);
+        if (start < today) {
+            return setBookError('Check-in date cannot be in the past.');
+        }
+        if (end <= start) {
+            return setBookError('Check-out date must be after check-in date.');
+        }
+
+        setBooking(true);
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/bookings`, {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/bookings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ listingId: id, customerId: user?.id, startDate: bookForm.startDate, endDate: bookForm.endDate }),
@@ -66,7 +81,7 @@ export default function CustomerListingDetail() {
         e.preventDefault();
         if (!chatText.trim()) return;
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/chat/message`, {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/chat/message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ listingId: id, senderId: user?.id, senderRole: 'CUSTOMER', messageText: chatText }),

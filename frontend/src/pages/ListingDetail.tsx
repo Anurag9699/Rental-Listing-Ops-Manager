@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiFetch } from '../utils/apiFetch';
 import { ChevronLeft, CheckCircle, XCircle, Building2, Tag, Clock, Info, MapPin } from 'lucide-react';
 
 interface Listing {
@@ -44,7 +45,7 @@ export default function ListingDetail() {
         const fetchListing = async () => {
             try {
                 setLoading(true);
-                const res = await fetch(`${API_BASE_URL.BACKEND}/listings/${id}`);
+                const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings/${id}`);
                 if (res.ok) {
                     setListing(await res.json());
                 } else {
@@ -63,7 +64,7 @@ export default function ListingDetail() {
         setActionLoading(true);
         setMessage(null);
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/listings/${id}/state`, {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings/${id}/state`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus, role: 'ADMIN' }),

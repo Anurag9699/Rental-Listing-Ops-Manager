@@ -7,16 +7,13 @@ const router = Router();
 // In-memory store for demonstration fallback
 const mockBlocks: any[] = [];
 
-let prisma: any;
+let prisma: any = null;
 try {
     prisma = new PrismaClient();
-} catch (e) {
-    prisma = { 
-        availabilityBlock: { 
-            findMany: () => Promise.reject("Mock"),
-            create: () => Promise.reject("Mock")
-        } 
-    };
+    console.log('[Availability] ✅ Prisma client initialized');
+} catch (e: any) {
+    console.warn('[Availability] ⚠️ Prisma unavailable, using mock data:', e.message);
+    prisma = null;
 }
 
 // POST /availability/block
@@ -30,10 +27,11 @@ router.post('/block', async (req, res) => {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const now = new Date();
 
-    // Edge Case: Reject past dates
-    if (start < now) {
+    // Edge Case: Reject past dates — compare date-only (midnight) so today is a valid check-in
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    if (start < todayMidnight) {
         return res.status(400).json({ error: "Cannot block dates in the past. startDate must be today or in the future." });
     }
 
@@ -43,6 +41,7 @@ router.post('/block', async (req, res) => {
     }
 
     try {
+        if (!prisma) throw new Error('DB_UNAVAILABLE');
         // Concurrency Safety: Use a Prisma $transaction to safely check for conflicts and write atomically
         const block = await prisma.$transaction(async (tx: any) => {
             // Check for overlapping blocks within the transaction
@@ -92,11 +91,11 @@ router.get('/:listingId', async (req, res) => {
     const { listingId } = req.params;
 
     try {
+        if (!prisma) throw new Error('DB_UNAVAILABLE');
         const blocks = await prisma.availabilityBlock.findMany({
             where: { listingId },
             orderBy: { startDate: 'asc' },
         });
-        if (blocks.length === 0) throw new Error("No blocks");
         res.status(200).json(blocks);
     } catch (error: any) {
         // Return in-memory mock data filtered by listingId — empty if none match

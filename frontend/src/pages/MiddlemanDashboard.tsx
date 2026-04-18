@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/RoleContext';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { apiFetch } from '../utils/apiFetch';
 import { Plus, Eye, Clock, Send, ImageIcon, X, Trash2 } from 'lucide-react';
 
 export default function MiddlemanDashboard() {
@@ -32,7 +33,7 @@ export default function MiddlemanDashboard() {
 
     const fetchListings = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/listings?role=MIDDLEMAN&ownerId=${user?.id}`);
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings?role=MIDDLEMAN&ownerId=${user?.id}`);
             const data = await res.json();
             setListings(data);
 
@@ -40,7 +41,7 @@ export default function MiddlemanDashboard() {
             const allBookings: any[] = [];
             for (const listing of data) {
                 try {
-                    const bRes = await fetch(`${API_BASE_URL.BACKEND}/bookings/${listing.id}`);
+                    const bRes = await apiFetch(`${API_BASE_URL.BACKEND}/bookings/${listing.id}`);
                     const bData = await bRes.json();
                     allBookings.push(...bData.map((b: any) => ({ ...b, listingTitle: listing.title })));
                 } catch (e) {}
@@ -58,7 +59,7 @@ export default function MiddlemanDashboard() {
         setCreating(true);
         try {
             const validImageUrls = imageUrls.filter(url => url.trim() !== '');
-            const res = await fetch(`${API_BASE_URL.BACKEND}/listings`, {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -103,7 +104,7 @@ export default function MiddlemanDashboard() {
 
     const submitForApproval = async (listingId: string) => {
         try {
-            await fetch(`${API_BASE_URL.BACKEND}/listings/${listingId}/state`, {
+            await apiFetch(`${API_BASE_URL.BACKEND}/listings/${listingId}/state`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: 'PENDING_APPROVAL', role: 'MIDDLEMAN' }),
@@ -115,7 +116,7 @@ export default function MiddlemanDashboard() {
     const handleDelete = async (listingId: string) => {
         if (!window.confirm('Are you sure you want to permanently delete this listing?')) return;
         try {
-            const res = await fetch(`${API_BASE_URL.BACKEND}/listings/${listingId}?ownerId=${user?.id}`, {
+            const res = await apiFetch(`${API_BASE_URL.BACKEND}/listings/${listingId}?ownerId=${user?.id}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
