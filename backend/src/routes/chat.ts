@@ -1,11 +1,10 @@
 import "dotenv/config";
 import { Router } from 'express';
 import { prisma } from '../prismaClient';
+import { sharedMockStore, MockMessage } from '../sharedStore';
 
+// Mock storage is now handled via sharedMockStore
 const router = Router();
-
-// In-memory mock messages (cleared old format because schema changed)
-const mockMessages: any[] = [];
 
 // POST /chat/message — Send message in a specific customer thread
 router.post('/message', async (req, res) => {
@@ -27,12 +26,12 @@ router.post('/message', async (req, res) => {
         });
         res.status(201).json(message);
     } catch (error: any) {
-        const newMessage = {
+        const newMessage: MockMessage = {
             id: 'msg-' + Date.now(),
-            listingId, customerId, senderId, senderRole, messageText,
+            listingId, customerId, senderId, senderRole: senderRole as any, messageText,
             createdAt: new Date()
         };
-        mockMessages.push(newMessage);
+        sharedMockStore.mockMessages.push(newMessage);
         res.status(201).json(newMessage);
     }
 });
@@ -51,11 +50,17 @@ router.get('/:listingId/threads', async (req, res) => {
         res.status(200).json(customers);
     } catch (error: any) {
         // Mock fallback
-        const listingMsgs = mockMessages.filter(m => m.listingId === req.params.listingId);
+        const listingMsgs = sharedMockStore.mockMessages.filter(m => m.listingId === req.params.listingId);
         const customersMap = new Map();
         listingMsgs.forEach(m => {
             if (!customersMap.has(m.customerId)) {
-                customersMap.set(m.customerId, { id: m.customerId, name: 'Mock Customer', email: 'mock@example.com' });
+                // Try to find real name in shared store
+                const realUser = sharedMockStore.findUserById(m.customerId);
+                customersMap.set(m.customerId, { 
+                    id: m.customerId, 
+                    name: realUser ? realUser.name : 'Unknown Customer', 
+                    email: realUser ? realUser.email : 'unknown@example.com' 
+                });
             }
         });
         res.status(200).json(Array.from(customersMap.values()));
@@ -80,7 +85,7 @@ router.get('/:listingId', async (req, res) => {
         });
         res.status(200).json(messages.length > 0 ? messages : []);
     } catch (error: any) {
-        const filtered = mockMessages.filter(m => 
+        const filtered = sharedMockStore.mockMessages.filter(m => 
             m.listingId === req.params.listingId && 
             m.customerId === customerId
         );

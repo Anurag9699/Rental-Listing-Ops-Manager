@@ -3,6 +3,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../prismaClient';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { sharedMockStore } from '../sharedStore';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'rentalops-dev-secret-2024';
@@ -26,18 +27,8 @@ function isValidEmail(email: string) {
 // Prisma unique constraint violation error code
 const PRISMA_UNIQUE_VIOLATION = 'P2002';
 
-// ─── In-memory mock users (bcrypt-hashed passwords) ────────────────────────
-// Only used when DB is completely unavailable.
-// Plain values: admin123 / rahul123 / priya123 / alex123 / sara123
+// Mock storage is now handled via sharedMockStore
 const SALT_ROUNDS = 10;
-
-const mockUsers: any[] = [
-    { id: 'admin-1', name: 'Ops Admin',     email: 'admin@rentalops.com', password: bcrypt.hashSync('admin123', SALT_ROUNDS), role: 'ADMIN',      createdAt: new Date() },
-    { id: 'mid-1',   name: 'Rahul Sharma',  email: 'rahul@rentalops.com', password: bcrypt.hashSync('rahul123', SALT_ROUNDS), role: 'MIDDLEMAN',  createdAt: new Date() },
-    { id: 'mid-2',   name: 'Priya Patel',   email: 'priya@rentalops.com', password: bcrypt.hashSync('priya123', SALT_ROUNDS), role: 'MIDDLEMAN',  createdAt: new Date() },
-    { id: 'cust-1',  name: 'Alex Johnson',  email: 'alex@gmail.com',      password: bcrypt.hashSync('alex123',  SALT_ROUNDS), role: 'CUSTOMER',   createdAt: new Date() },
-    { id: 'cust-2',  name: 'Sara Williams', email: 'sara@gmail.com',      password: bcrypt.hashSync('sara123',  SALT_ROUNDS), role: 'CUSTOMER',   createdAt: new Date() },
-];
 
 // ─── Middleware: verify JWT ─────────────────────────────────────────────────
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -122,16 +113,16 @@ router.post('/register', async (req, res) => {
     }
 
     // ── Mock fallback (only when DB is fully unavailable) ─────────────────────
-    const existingMock = mockUsers.find(u => u.email === normalizedEmail);
+    const existingMock = sharedMockStore.findUserByEmail(normalizedEmail);
     if (existingMock) {
         return res.status(409).json({ error: "An account with this email already exists. Please log in." });
     }
-    const newUser = {
+    const newUser: any = {
         id: 'user-' + Date.now(),
         name: name.trim(), email: normalizedEmail, password: hashedPassword,
         role: userRole, createdAt: new Date()
     };
-    mockUsers.push(newUser);
+    sharedMockStore.addUser(newUser);
     const safeUser = stripPassword(newUser);
     const token = generateToken(safeUser as any);
     return res.status(201).json({ ...safeUser, token });
@@ -161,6 +152,8 @@ router.post('/login', async (req, res) => {
                 }
                 const safeUser = stripPassword(user);
                 const token = generateToken(safeUser as any);
+                // Also cache in mock store for cross-module fallback safety
+                sharedMockStore.addUser({ ...user, createdAt: user.createdAt || new Date() } as any);
                 return res.status(200).json({ ...safeUser, token });
             }
             // Not found in DB, perfectly fine, fall through to check mock users.
@@ -171,7 +164,7 @@ router.post('/login', async (req, res) => {
     }
 
     // ── Mock fallback ──────────────────────────────────────────────────────────
-    const user = mockUsers.find(u => u.email === normalizedEmail);
+    const user = sharedMockStore.findUserByEmail(normalizedEmail);
     if (!user) return res.status(401).json({ error: "Invalid email or password." });
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) return res.status(401).json({ error: "Invalid email or password." });
@@ -193,7 +186,7 @@ router.get('/users', requireAuth, requireRole('ADMIN'), async (req, res) => {
             console.error('[Users] DB error:', error.message);
         }
     }
-    return res.status(200).json(mockUsers.map(({ password, ...u }: any) => u));
+    return res.status(200).json(sharedMockStore.mockUsers.map(({ password, ...u }: any) => u));
 });
 
 export default router;
