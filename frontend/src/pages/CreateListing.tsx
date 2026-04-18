@@ -55,7 +55,7 @@ export default function CreateListing() {
                     
                     <div className="mb-10">
                         <h1 className="text-3xl font-black text-slate-900 mb-2">Create New Listing</h1>
-                        <p className="text-slate-400 font-medium italic">Onboard a new property to the management fleet.</p>
+                        <p className="text-slate-400 font-medium italic">Onboard a new property to the management fleet. Ensure pricing logic is active.</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-8">
