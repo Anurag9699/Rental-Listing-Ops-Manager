@@ -1,14 +1,41 @@
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/RoleContext';
-import { Home, LogOut, Search, Shield, Users, ShoppingBag } from 'lucide-react';
+import { useAuth, WARN_BEFORE_MS } from '../../contexts/RoleContext';
+import { Home, LogOut, Search, Shield, Users, ShoppingBag, AlertTriangle } from 'lucide-react';
 
 export default function AppLayout() {
-    const { user, logout } = useAuth();
+    const { user, logout, sessionExpiresAt, extendSession } = useAuth();
     const navigate = useNavigate();
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!sessionExpiresAt) {
+            setTimeLeft(null);
+            return;
+        }
+        const interval = setInterval(() => {
+            const remaining = sessionExpiresAt - Date.now();
+            if (remaining <= 0) {
+                setTimeLeft(0);
+                clearInterval(interval);
+            } else {
+                setTimeLeft(Math.floor(remaining / 1000));
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [sessionExpiresAt]);
 
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    const isWarning = timeLeft !== null && timeLeft <= Math.floor(WARN_BEFORE_MS / 1000);
+
+    const formatTime = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
     const roleConfig: Record<string, { label: string; color: string; icon: any; links: { to: string; label: string; icon: any }[] }> = {
@@ -42,8 +69,27 @@ export default function AppLayout() {
     const RoleIcon = config.icon;
 
     return (
-        <div className="min-h-screen flex">
-            {/* Sidebar */}
+        <div className="min-h-screen flex flex-col">
+            {/* Session Expiry Warning Banner */}
+            {isWarning && timeLeft > 0 && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white px-4 py-3 flex items-center justify-between shadow-lg">
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5 animate-pulse" />
+                        <span className="font-medium text-sm">
+                            Your session will expire in <span className="font-bold">{formatTime(timeLeft)}</span> due to inactivity.
+                        </span>
+                    </div>
+                    <button 
+                        onClick={() => extendSession()}
+                        className="bg-white text-red-600 hover:bg-red-50 text-xs font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap shadow-sm"
+                    >
+                        Stay Logged In
+                    </button>
+                </div>
+            )}
+
+            <div className="flex flex-1">
+                {/* Sidebar */}
             <aside className="w-56 bg-white border-r border-slate-200 flex flex-col fixed h-screen">
                 {/* Brand */}
                 <div className="p-5 border-b border-slate-200">
@@ -117,6 +163,7 @@ export default function AppLayout() {
                 <main className="p-8">
                     <Outlet />
                 </main>
+            </div>
             </div>
         </div>
     );
