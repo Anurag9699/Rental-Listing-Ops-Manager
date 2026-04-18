@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/RoleContext';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { apiFetch } from '../utils/apiFetch';
 import { ArrowLeft, Calendar, MessageSquare, Send, MapPin, Trash2 } from 'lucide-react';
+import React from 'react';
 
 export default function MiddlemanListingDetail() {
     const { id } = useParams();
@@ -13,6 +14,7 @@ export default function MiddlemanListingDetail() {
     const [messages, setMessages] = useState<any[]>([]);
     const [threads, setThreads] = useState<any[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+    const messagesEndRef = React.useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'availability' | 'chat'>('availability');
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
@@ -75,6 +77,12 @@ export default function MiddlemanListingDetail() {
         }, 5000);
         return () => clearInterval(interval);
     }, [activeTab, id]);
+
+    useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages]);
 
     const handleDeleteListing = async () => {
         if (!window.confirm('Are you sure you want to permanently delete this listing?')) return;
@@ -315,6 +323,7 @@ export default function MiddlemanListingDetail() {
                                             </div>
                                         </div>
                                     ))}
+                                    <div ref={messagesEndRef} />
                                 </div>
                                 <form onSubmit={handleSendMessage} className="border-t border-slate-200 p-4 flex gap-2 bg-white">
                                     <input type="text" value={chatText} onChange={e => setChatText(e.target.value)}

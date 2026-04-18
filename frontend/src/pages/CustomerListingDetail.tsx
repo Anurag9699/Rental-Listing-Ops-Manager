@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/RoleContext';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { apiFetch } from '../utils/apiFetch';
 import { ArrowLeft, Calendar, MessageSquare, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import React from 'react';
 
 export default function CustomerListingDetail() {
     const { id } = useParams();
@@ -12,6 +13,7 @@ export default function CustomerListingDetail() {
     const [blockedRanges, setBlockedRanges] = useState<{ start: Date; end: Date; type: 'booked' | 'blocked'; label?: string }[]>([]);
     const [myBookings, setMyBookings] = useState<any[]>([]);
     const [messages, setMessages] = useState<any[]>([]);
+    const messagesEndRef = React.useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'availability' | 'chat'>('availability');
     const [loading, setLoading] = useState(true);
     // Calendar navigation
@@ -168,6 +170,12 @@ export default function CustomerListingDetail() {
         }, 3000);
         return () => clearInterval(interval);
     }, [activeTab, id, user?.id]);
+
+    useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages]);
 
     if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>;
     if (!listing) return <p className="text-center text-red-500 py-12">Listing not found.</p>;
@@ -409,6 +417,7 @@ export default function CustomerListingDetail() {
                                 </div>
                             </div>
                         ))}
+                        <div ref={messagesEndRef} />
                     </div>
                     <form onSubmit={handleSendMessage} className="border-t border-slate-200 p-4 flex gap-2">
                         <input type="text" value={chatText} onChange={e => setChatText(e.target.value)}
