@@ -22,6 +22,22 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// Base route for the browser
+app.get('/', (req, res) => {
+    res.status(200).send(`
+        <html>
+            <head><title>Rental Ops API</title></head>
+            <body style="font-family: system-ui, sans-serif; padding: 2rem; text-align: center; background: #f8fafc;">
+                <h1 style="color: #0f172a;">Rental Listing Ops Manager API</h1>
+                <p style="color: #475569;">The backend service is running successfully.</p>
+                <div style="margin-top: 2rem; padding: 1rem; background: #e2e8f0; border-radius: 8px; display: inline-block;">
+                    Status: <strong>UP</strong>
+                </div>
+            </body>
+        </html>
+    `);
+});
+
 // Mock Availability Route to suppress connection errors if microservice is offline
 app.get('/api/availability/:listingId', (req, res) => {
     res.status(200).json([]);
